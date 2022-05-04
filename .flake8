@@ -1,0 +1,4 @@
+[flake8]
+
+# Match the max line length we have set for black
+max-line-length = 88
