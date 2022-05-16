@@ -12,6 +12,11 @@ from .protocol import CoreServer
 
 
 class Server:
+    """Server class
+
+    Docstring
+    """
+
     def __init__(self, name="trame", **options):
         # Core internal variables
         self._server = None
