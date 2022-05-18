@@ -12,5 +12,6 @@ Welcome to Trame Server's documentation!
    :maxdepth: 1
 
    api
+   Trame <https://trame.readthedocs.io>
 
 .. include:: usage.rst
