@@ -107,6 +107,9 @@ class Server:
         if "www" in module.__dict__:
             self._www = module.www
 
+        # Reduce vue_use to merge options
+        utils.reduce_vue_use(self.state)
+
         self._loaded_modules.add(module)
 
     # -------------------------------------------------------------------------

@@ -28,3 +28,45 @@ def clean_value(value):
         return list(map(clean_value, value))
 
     return value
+
+
+def update_dict(destination, source):
+    for key, value in source.items():
+        if isinstance(value, dict):
+            # get node or create one
+            container = destination.setdefault(key, {})
+            update_dict(container, value)
+        else:
+            destination[key] = value
+
+    return destination
+
+
+def reduce_vue_use(state):
+    _order = []
+    _options = {}
+    _reduced = []
+
+    # Merge options
+    for item in state.trame__vue_use:
+        options = {}
+        if isinstance(item, str):
+            name = item
+        else:
+            name, options = item
+
+        _options.setdefault(name, {})
+        if name not in _order:
+            _order.append(item)
+
+        update_dict(_options[name], options)
+
+    # Generate new content
+    for name in _order:
+        if len(_options[name]):
+            _reduced.append((name, _options[name]))
+        else:
+            _reduced.append(name)
+
+    # Update state.trame__vue_use with cleaned up version
+    state.trame__vue_use = _reduced
