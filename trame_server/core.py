@@ -1,6 +1,5 @@
 import os
 import argparse
-import shutil
 import asyncio
 import logging
 
@@ -12,9 +11,23 @@ from .protocol import CoreServer
 
 
 class Server:
-    """Server class
+    """
+    Server implementation for trame.
+    This is the core object that manage client/server communication but also
+    holds a state and controller instance.
+    With trame a server instance should be retrieved by using **trame.app.get_server()**
 
-    Docstring
+    Known options:
+      - log_network: False (path to log file)
+      - ws_max_msg_size: 10000000 (bytes)
+      - ws_heart_beat: 30
+      - desktop_debug: False
+
+    :param name: A name identifier for a given server
+    :type name: str, optional (default: trame)
+
+    :param **options: Gather any keyword arguments into options
+    :type options: Dict
     """
 
     def __init__(self, name="trame", **options):
@@ -27,7 +40,7 @@ class Server:
         self._options = options
 
         # Controller
-        self.controller = Controller(self.trigger, self.trigger_name)
+        self._controller = Controller(self.trigger, self.trigger_name)
 
         # HTTP server
         self.serve = {}
@@ -51,13 +64,13 @@ class Server:
         self._protocols_to_configure = []
 
         # Shared state + reserve internal keys
-        self.state = State(self)
+        self._state = State(self)
         for key in ["scripts", "styles", "vue_use", "mousetrap"]:
-            self.state[f"trame__{key}"] = []
-        self.state.trame__client_only = ["trame__busy"]
-        self.state.trame__busy = 1
-        self.state.trame__favicon = None
-        self.state.trame__title = "Trame"
+            self._state[f"trame__{key}"] = []
+        self._state.trame__client_only = ["trame__busy"]
+        self._state.trame__busy = 1
+        self._state.trame__favicon = None
+        self._state.trame__title = "Trame"
 
         # ENV variable mapping settings
         self._options["log_network"] = self._options.get(
@@ -88,6 +101,25 @@ class Server:
     # -------------------------------------------------------------------------
 
     def enable_module(self, module, **kwargs):
+        """
+        Expend server using a module definition which can be used to serve custom
+        client code or assets, load/initialize resources (js, css, vue),
+        register custom protocols and even execute custom code.
+
+        Any previously seem module will be automatically skipped.
+
+        The attributes that are getting processed in a module are the following:
+          - setup(server, **kwargs): Function called first
+          - scripts = []           : List all JavaScript URL that should be loaded
+          - styles  = []           : List all CSS URL that should be loaded
+          - vue_use = ['libName', ('libName2', { **options })]: List Vue plugin to load
+          - state = {}             : Set of variable to add to state
+          - server = { data: '/path/on/fs' }: Set of endpoints to server static content
+          - www = '/path/on/fs'    : Path served as main web content
+
+        :param module: A module to enable
+        :param kwargs: Any optional parameters needed for your module setup() function.
+        """
         if module in self._loaded_modules:
             return
 
@@ -116,8 +148,18 @@ class Server:
     # Call methods
     # -------------------------------------------------------------------------
 
-    def js_call(self, ref=None, method=None, *args):
-        """Python call method on JS element"""
+    def js_call(self, ref: str = None, method: str = None, *args):
+        """
+        Python call method on JS element.
+
+        :param ref: ref name of the widget element
+        :type ref: str
+
+        :param method: name of the method that should be called
+        :type method: str
+
+        :param *args: set of parameters needed for the function
+        """
         if self.protocol:
             self.protocol.push_actions(
                 [
@@ -136,7 +178,12 @@ class Server:
 
     def change(self, *_args, **_kwargs):
         """
-        Use as decorator `@server.change(key1, key2, ...)`
+        Use as decorator `@server.change(key1, key2, ...)` so the decorated function
+        will be called like so `_fn(**state)` when any of the listed key name
+        is getting modified from either client or server.
+
+        :param *_args: A list of variable name to monitor
+        :type *_args: str
         """
 
         def register_change_callback(func):
@@ -152,7 +199,11 @@ class Server:
 
     def trigger(self, name):
         """
-        Use as decorator `@server.trigger(name)`
+        Use as decorator `@server.trigger(name)` so the decorated function
+        will be able to be called from the client by doing `click="trigger(name)"`.
+
+        :param name: A name to use for that trigger
+        :type name: str
         """
 
         def register_trigger(func):
@@ -167,6 +218,13 @@ class Server:
     # -------------------------------------------------------------------------
 
     def trigger_name(self, fn):
+        """
+        Given a function this method will register a trigger and returned its name.
+        If manually registered, the given name at the time will be returned.
+
+        :return: The trigger name for that function
+        :rtype: str
+        """
         if fn in self._triggers_fn2name:
             return self._triggers_fn2name[fn]
 
@@ -181,14 +239,17 @@ class Server:
 
     @property
     def name(self):
+        """Name of server"""
         return self._name
 
     @property
     def options(self):
+        """Server options provided at instantiation time"""
         return self._options
 
     @property
     def cli(self):
+        """argparse parser"""
         if self._cli_parser:
             return self._cli_parser
 
@@ -211,7 +272,24 @@ class Server:
         return self._cli_parser
 
     @property
+    def state(self):
+        """
+        :return: The server shared state
+        :rtype: trame_server.state.State
+        """
+        return self._state
+
+    @property
+    def controller(self):
+        """
+        :return: The server controller
+        :rtype: trame_server.controller.Controller
+        """
+        return self._controller
+
+    @property
     def running(self):
+        """Return True if the server is currently starting or running."""
         return self._running_stage > 1
 
     # -------------------------------------------------------------------------
@@ -219,6 +297,7 @@ class Server:
     # -------------------------------------------------------------------------
 
     def get_server_state(self):
+        """Return the current server state"""
         shared_state = utils.clean_state(self.state.initial)
         state = {
             "name": self._name,
@@ -229,15 +308,32 @@ class Server:
     # -------------------------------------------------------------------------
 
     def add_protocol_to_configure(self, configure_protocol_fn):
+        """
+        Register function that will be called with a wslink.ServerProtocol
+        when the server start and is ready for registering new wslink.Protocol.
+
+        :param configure_protocol_fn: A function to be called later with a
+                                      wslink.ServerProtocol as argument.
+        """
         self._protocols_to_configure.append(configure_protocol_fn)
 
     @property
     def protocol(self):
+        """Return the server root protocol"""
         return self._root_protocol
 
     # -------------------------------------------------------------------------
 
     def protocol_call(self, method, *args, **kwargs):
+        """
+        Call a registered protocol method
+
+        :param method: Method registration name
+        :type method: str
+        :param *args: Set of args to use for that method call
+        :param **kwargs: Set of keyword arguments to use for that method call
+        :return: transparently return what the called function returns
+        """
         if self.protocol:
             pair = self.protocol.getRPCMethod(method)
             if pair:
@@ -250,16 +346,43 @@ class Server:
 
     def start(
         self,
-        port=None,
-        thread=False,
-        open_browser=True,
-        show_connection_info=True,
-        disableLogging=False,
-        backend="aiohttp",
-        exec_mode="main",
-        timeout=None,
+        port: int = None,
+        thread: bool = False,
+        open_browser: bool = True,
+        show_connection_info: bool = True,
+        disable_logging: bool = False,
+        backend: str = "aiohttp",
+        exec_mode: str = "main",
+        timeout: int = None,
         **kwargs,
     ):
+        """
+        Start the server by listening to the provided port or using the
+        `--port, -p` command line argument.
+        If the server is already starting or started, any further call will be skipped.
+
+        When the exec_mode="main" or "desktop", the method will be blocking.
+        If exec_mode="task", the method will return a scheduled task.
+        If exec_mode="coroutine", the method will return a coroutine which
+        will need to be scheduled by the user.
+
+        :param port: A port number to listen to. When 0 is provided
+                     the system will use a random open port.
+        :param thread: If the server run in a thread which means
+                       we should disable interuption listeners
+        :param open_browser: Should we open the system browser with app url.
+                             Using the `--server` command line argument is
+                             similar to setting it to False.
+        :param show_connection_info: Should we print connection URL at startup?
+        :param disable_logging: Ask wslink to disable logging
+        :param exec_mode: main/desktop/task/coroutine
+                          specify how the start function should work
+        :param timeout: How much second should we wait before automatically
+                        stopping the server when no client is connected.
+                        Setting it to 0 will disable such auto-shutdown.
+        :param **kwargs: Keyword arguments for capturing optional parameters
+                         for wslink server and/or desktop browser
+        """
         if self._running_stage:
             return
 
@@ -318,7 +441,7 @@ class Server:
         self._running_stage = 1
         task = CoreServer.server_start(
             options,
-            disableLogging=disableLogging,
+            disableLogging=disable_logging,
             backend=backend,
             exec_mode=exec_mode,
             **kwargs,
@@ -347,29 +470,11 @@ class Server:
         return task
 
     async def stop(self):
+        """Coroutine for stopping the server"""
         if self._running_stage:
             await self._server.stop()
 
     @property
     def port(self):
+        """Once started, you can retrieve the port used"""
         return self._running_port
-
-    # -------------------------------------------------------------------------
-    # Extract client side of current app instance with its enabled modules
-    # -------------------------------------------------------------------------
-
-    def write_www(self, destination_directory=None):
-        if destination_directory is None:
-            print(
-                "Need to provide a destination directory to write into "
-                "the trame client."
-            )
-            return
-
-        if self._www:
-            shutil.copytree(self._www, destination_directory, dirs_exist_ok=True)
-            for sub_path, src_dir in self.serve.items():
-                dst_dir = os.path.join(destination_directory, sub_path)
-                shutil.copytree(src_dir, dst_dir, dirs_exist_ok=True)
-        else:
-            print("Skip export as no module have been activated.")
