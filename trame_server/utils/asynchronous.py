@@ -8,6 +8,7 @@ __all__ = [
     "create_state_queue_monitor_task",
     "StateQueue",
     "handle_task_result",
+    "task",
 ]
 
 QUEUE_EXIT = "STOP"
