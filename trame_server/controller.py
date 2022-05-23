@@ -193,21 +193,49 @@ class ControllerFunction:
         return result
 
     def add(self, func):
+        """
+        Add function to the set of functions to be called when
+        the current ControllerFunction is called.
+
+        :param func: Function to add
+        """
         self.funcs.add(func)
 
     def discard(self, func):
+        """
+        Discard function to the set of functions to be called when
+        the current ControllerFunction is called.
+
+        :param func: Function to discard
+        """
         self.funcs.discard(func)
 
     def remove(self, func):
+        """
+        Remove function to the set of functions to be called when
+        the current ControllerFunction is called.
+
+        :param func: Function to remove
+        """
         self.funcs.remove(func)
 
     def clear(self, set_only=False):
+        """
+        Clear all the functions registered to the current ControllerFunction.
+
+        :param set_only: (default: False) If true only the "added" one will be removed.
+        """
         if not set_only:
             self.func = None
 
         self.funcs.clear()
 
     def exists(self):
+        """
+        Check if at least a function was registered to the current ControllerFunction.
+
+        :return: True if either a function was set or added
+        """
         if self.func is not None:
             return True
         return len(self.funcs) > 0
