@@ -92,7 +92,7 @@ def create_state_queue_monitor_task(server, queue, delay=1):
     :return: The monitoring task
     :rtype: asyncio.Task
     """
-    return create_task(_queue_update_state(queue, delay=delay))
+    return create_task(_queue_update_state(server, queue, delay=delay))
 
 
 class StateQueue:
