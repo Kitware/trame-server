@@ -64,6 +64,96 @@ class Controller:
         else:
             self._func_dict[name] = ControllerFunction(name, func)
 
+    def add(self, name, clear=False):
+        """
+        Use as decorator `@ctrl.add(name)` so the decorated function
+        will be added to a given controller name
+
+        :param name: Controller method name to be added to
+        :type name: str
+
+        .. code-block::
+
+            ctrl = server.controller
+
+            @ctr.add("on_server_ready")
+            def on_ready(**state):
+                pass
+
+            # or
+            ctrl.on_server_ready.add(on_ready)
+
+        You can also make sure when the method get registered we clear
+        any previous content.
+
+        .. code-block::
+
+            ctrl = server.controller
+
+            @ctr.add("on_server_ready", clear=True)
+            def on_ready(**state):
+                pass
+
+            # or
+            ctrl.on_server_ready.clear()
+            ctrl.on_server_ready.add(on_ready)
+
+        """
+
+        def register_ctrl_method(func):
+            if clear:
+                self[name].clear()
+
+            self[name].add(func)
+            return func
+
+        return register_ctrl_method
+
+    def set(self, name, clear=False):
+        """
+        Use as decorator `@ctrl.set(name)` so the decorated function
+        will be added to a given controller name
+
+        :param name: Controller method name to be set to
+        :type name: str
+
+        .. code-block::
+
+            ctrl = server.controller
+
+            @ctr.set("on_server_ready")
+            def on_ready(**state):
+                pass
+
+            # or
+            ctrl.on_server_ready = on_ready
+
+        You can also make sure when the method get registered we clear
+        any previous content.
+
+        .. code-block::
+
+            ctrl = server.controller
+
+            @ctr.set("on_server_ready", clear=True)
+            def on_ready(**state):
+                pass
+
+            # or
+            ctrl.on_server_ready.clear()
+            ctrl.on_server_ready = on_ready
+
+        """
+
+        def register_ctrl_method(func):
+            if clear:
+                self[name].clear()
+
+            self[name] = func
+            return func
+
+        return register_ctrl_method
+
 
 class ControllerFunction:
     """Controller functions are callable function proxy objects
