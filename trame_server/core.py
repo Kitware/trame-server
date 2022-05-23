@@ -441,10 +441,12 @@ class Server:
         self._running_stage = 1
         task = CoreServer.server_start(
             options,
-            disableLogging=disable_logging,
-            backend=backend,
-            exec_mode=exec_mode,
-            **kwargs,
+            **{  # Do a proper merging/override
+                **kwargs,
+                "disableLogging": disable_logging,
+                "backend": backend,
+                "exec_mode": exec_mode,
+            },
         )
 
         # Manage exit life cycle unless coroutine
