@@ -23,7 +23,7 @@ jobs:
           pre-commit run --all-files
 
   pytest:
-    name: ${{ matrix.config.name }}
+    name: Pytest ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
     strategy:
       fail-fast: false
