@@ -57,7 +57,7 @@ def reduce_vue_use(state):
 
         _options.setdefault(name, {})
         if name not in _order:
-            _order.append(item)
+            _order.append(name)
 
         update_dict(_options[name], options)
 
