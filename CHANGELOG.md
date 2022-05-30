@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.0.2 (2022-05-30)
+### Fix
+* **state:** No @state.change exec before server ready ([`50acbb5`](https://github.com/Kitware/trame-server/commit/50acbb5cdd867c981ea2b3d62948737c4ee4317c))
+
 ## v2.0.1 (2022-05-27)
 ### Fix
 * Add github action for semantic release ([`661b74a`](https://github.com/Kitware/trame-server/commit/661b74a658dabf8ed1c837c6a5e4ab53f368210a))
