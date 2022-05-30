@@ -39,6 +39,12 @@ class State:
         self._state_listeners = StateChangeHandler(server._change_callbacks)
         self._push_state_fn = server._push_state
         self._change = server.change
+        #
+        self._pending_initialization = True
+
+    def server_ready(self):
+        self._pending_initialization = False
+        self.flush()
 
     def __getitem__(self, key):
         return self._pending_update.get(key, self._pushed_state.get(key))
@@ -142,6 +148,9 @@ class State:
 
     def flush(self):
         """Force pushing modified state and execute any @state.change listener"""
+        if self._pending_initialization:
+            return
+
         keys = set()
         if len(self._pending_update):
             _keys = set(self._pending_update.keys())
