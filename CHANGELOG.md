@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.0 (2022-06-04)
+### Feature
+* **ui:** Introduce virtual node manager on server ([`f50551e`](https://github.com/Kitware/trame-server/commit/f50551ee1729204f208bc46f9200f4ad78d1197e))
+
 ## v2.0.2 (2022-05-30)
 ### Fix
 * **state:** No @state.change exec before server ready ([`50acbb5`](https://github.com/Kitware/trame-server/commit/50acbb5cdd867c981ea2b3d62948737c4ee4317c))
