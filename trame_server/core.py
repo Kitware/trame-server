@@ -7,6 +7,7 @@ from . import utils
 
 from .state import State
 from .controller import Controller
+from .ui import VirtualNodeManager
 from .protocol import CoreServer
 
 
@@ -30,7 +31,7 @@ class Server:
     :type options: Dict
     """
 
-    def __init__(self, name="trame", **options):
+    def __init__(self, name="trame", vn_constructor=None, **options):
         # Core internal variables
         self._server = None
         self._running_port = 0
@@ -41,6 +42,9 @@ class Server:
 
         # Controller
         self._controller = Controller(self.trigger, self.trigger_name)
+
+        # UI
+        self._ui = VirtualNodeManager(self, vn_constructor)
 
         # HTTP server
         self.serve = {}
@@ -286,6 +290,14 @@ class Server:
         :rtype: trame_server.controller.Controller
         """
         return self._controller
+
+    @property
+    def ui(self):
+        """
+        :return: The server VirtualNode manager
+        :rtype: trame_server.ui.VirtualNodeManager
+        """
+        return self._ui
 
     @property
     def running(self):
