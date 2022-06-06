@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.1 (2022-06-06)
+### Fix
+* **flush:** Force flush for information print ([`fda6300`](https://github.com/Kitware/trame-server/commit/fda6300d42fa83d1350e8fb75412ec1314b03ba5))
+
 ## v2.1.0 (2022-06-04)
 ### Feature
 * **ui:** Introduce virtual node manager on server ([`f50551e`](https://github.com/Kitware/trame-server/commit/f50551ee1729204f208bc46f9200f4ad78d1197e))
