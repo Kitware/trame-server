@@ -16,4 +16,7 @@ def print_informations(server):
         pass
 
     print()
-    print("Note that for multi-users you need to use and configure a launcher.")
+    print(
+        "Note that for multi-users you need to use and configure a launcher.",
+        flush=True,
+    )
