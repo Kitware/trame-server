@@ -50,6 +50,11 @@ class State:
         return self._pending_update.get(key, self._pushed_state.get(key))
 
     def __setitem__(self, key, value):
+        if key in self._pushed_state:
+            if value == self._pushed_state[key]:
+                self._pending_update.pop(key, None)
+                return
+
         self._pending_update[key] = value
 
     def __getattr__(self, key):
