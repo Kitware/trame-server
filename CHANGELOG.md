@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.2 (2022-06-10)
+### Fix
+* **state:** Prevent equal value to trigger change ([`4c3165f`](https://github.com/Kitware/trame-server/commit/4c3165f9232d481f085845ed49c0b1c5109c1b81))
+
+### Documentation
+* **contributing:** Add CONTRIBUTING.rst ([`27212aa`](https://github.com/Kitware/trame-server/commit/27212aaea6a16843711a37337e4fdc439db5c4bb))
+
 ## v2.1.1 (2022-06-06)
 ### Fix
 * **flush:** Force flush for information print ([`fda6300`](https://github.com/Kitware/trame-server/commit/fda6300d42fa83d1350e8fb75412ec1314b03ba5))
