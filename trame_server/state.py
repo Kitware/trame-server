@@ -4,6 +4,8 @@ __all__ = [
     "State",
 ]
 
+TRAME_NON_INIT_VALUE = "__trame__: non_init_value_that_is_not_None"
+
 
 class StateChangeHandler:
     def __init__(self, listeners):
@@ -150,6 +152,9 @@ class State:
     def update(self, _dict):
         """Update the current state dict with the provided one"""
         self._pending_update.update(_dict)
+        for key in _dict:
+            if _dict[key] == self._pushed_state.get(key, TRAME_NON_INIT_VALUE):
+                self._pending_update.pop(key, None)
 
     def flush(self):
         """Force pushing modified state and execute any @state.change listener"""

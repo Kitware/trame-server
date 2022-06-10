@@ -53,6 +53,14 @@ def test_minimum_change_detection():
     18 msg  : Enter with a=5
     19 msg  : About to exit a=5
     20 msg  : (prev=5) After with state + 3,5,4,5
+    21 msg  : Enter with a=5
+    22 msg  : About to exit a=5
+    23 push : {'b': 3, 'c': 2}
+    24 msg  : (prev=5) After with state + a:1,5 b:2,3 c:3,2
+    25 msg  : Enter with a=5
+    26 msg  : About to exit a=1
+    27 push : {'a': 1, 'b': 2, 'c': 3}
+    28 exec : 1
     """
     server = FakeServer()
     server.add_event("test_minimum_change_detection")
@@ -112,6 +120,21 @@ def test_minimum_change_detection():
         server.add_event(f"About to exit a={state.a}")
 
     server.add_event("(prev=5) After with state + 3,5,4,5")
+
+    # Use update to set {a: 1, b: 2, c: 3}
+    with state:
+        server.add_event(f"Enter with a={state.a}")
+        state.update(dict(a=1, b=2, c=3))
+        state.update(dict(a=5, b=3, c=2))
+        server.add_event(f"About to exit a={state.a}")
+
+    server.add_event("(prev=5) After with state + a:1,5 b:2,3 c:3,2")
+
+    # Use update to set {a: 1, b: 2, c: 3}
+    with state:
+        server.add_event(f"Enter with a={state.a}")
+        state.update(dict(a=1, b=2, c=3))
+        server.add_event(f"About to exit a={state.a}")
 
     # Validate event
     result = str(server)
