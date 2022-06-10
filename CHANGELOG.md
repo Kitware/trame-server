@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.3 (2022-06-10)
+### Fix
+* **state.update:** Prevent equal value to trigger change ([`5d2d5e1`](https://github.com/Kitware/trame-server/commit/5d2d5e1563238d995a34b521f85a3fcba716e950))
+
 ## v2.1.2 (2022-06-10)
 ### Fix
 * **state:** Prevent equal value to trigger change ([`4c3165f`](https://github.com/Kitware/trame-server/commit/4c3165f9232d481f085845ed49c0b1c5109c1b81))
