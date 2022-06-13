@@ -60,7 +60,11 @@ jobs:
       run: |
         pip install .
         pip install -r tests/requirements.txt
-        pytest -s ./tests
+        # Run the tests with coverage so we get a coverage report too
+        pip install coverage
+        coverage run -m pytest .
+        # Print the coverage report
+        coverage report -m
 
   release:
     needs: [pre-commit, pytest]
