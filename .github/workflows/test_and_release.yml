@@ -62,7 +62,7 @@ jobs:
         pip install -r tests/requirements.txt
         # Run the tests with coverage so we get a coverage report too
         pip install coverage
-        coverage run -m pytest .
+        coverage run --source . -m pytest .
         # Print the coverage report
         coverage report -m
 
