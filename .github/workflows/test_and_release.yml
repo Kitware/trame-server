@@ -66,6 +66,9 @@ jobs:
         # Print the coverage report
         coverage report -m
 
+    - name: Upload Coverage to Codecov
+      uses: codecov/codecov-action@v3
+
   release:
     needs: [pre-commit, pytest]
     runs-on: ubuntu-latest
