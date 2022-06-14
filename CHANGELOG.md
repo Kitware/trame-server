@@ -2,6 +2,15 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.4 (2022-06-14)
+### Fix
+* **desktop:** Add support for gui option ([`2d59706`](https://github.com/Kitware/trame-server/commit/2d59706b5bb209ccc181bffaf3c22065060a27fa))
+
+### Documentation
+* **codecov:** Show coverage for all source files ([`1c2b98e`](https://github.com/Kitware/trame-server/commit/1c2b98eae2a62860ed37adf3065fe42f5d48d218))
+* **codecov:** Upload coverage to codecov ([`3a00af1`](https://github.com/Kitware/trame-server/commit/3a00af1cae74858d57e4bb5a7d961ab838ba5aba))
+* **codecov:** Create and print coverage report ([`809a6de`](https://github.com/Kitware/trame-server/commit/809a6def95df2ead4d5172fa863b684851384898))
+
 ## v2.1.3 (2022-06-10)
 ### Fix
 * **state.update:** Prevent equal value to trigger change ([`5d2d5e1`](https://github.com/Kitware/trame-server/commit/5d2d5e1563238d995a34b521f85a3fcba716e950))
