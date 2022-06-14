@@ -4,14 +4,18 @@ from .asynchronous import handle_task_result
 
 
 class BrowserProcess(Process):
-    def __init__(self, title=None, port=None, msg_queue=None, debug=False, **kwargs):
+    def __init__(
+        self, title=None, port=None, msg_queue=None, debug=False, gui=None, **kwargs
+    ):
         Process.__init__(self)
         self._title = title
         self._port = port
         self._msg_queue = msg_queue
         self._window_args = kwargs
         self._main_window = None
+        # start args
         self._debug = debug
+        self._gui = gui
 
     def exit(self):
         # It does not appear that we need to destroy the window
@@ -36,7 +40,7 @@ class BrowserProcess(Process):
             # Older versions (around pywebview<=3.5) use window.closing
             self._main_window.closing += self.exit
 
-        webview.start(debug=self._debug)
+        webview.start(debug=self._debug, gui=self._gui)
 
 
 def start_browser(server, **kwargs):
