@@ -1,2 +1,2 @@
 [run]
-omit = *docs*, *tests*
+omit = *docs*, *tests*, setup.py
