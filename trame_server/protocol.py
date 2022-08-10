@@ -132,7 +132,9 @@ class CoreServer(ServerProtocol):
         logger.action_c2s({"name": name, "args": args, "kwargs": kwargs})
         with self.server.state:
             if name in self.server._triggers:
-                await asyncio.coroutine(self.server._triggers[name])(*args, **kwargs)
+                return await asyncio.coroutine(self.server._triggers[name])(
+                    *args, **kwargs
+                )
             else:
                 print(f"Trigger {name} seems to be missing")
 
