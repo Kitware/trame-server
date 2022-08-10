@@ -2,6 +2,14 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.5 (2022-08-10)
+### Fix
+* **trigger:** Allow triggers to return something ([`aebfb01`](https://github.com/Kitware/trame-server/commit/aebfb017889d7fc40690925cf457959896fa097a))
+
+### Documentation
+* **coverage:** Remove codecov PR comment ([`1ae8142`](https://github.com/Kitware/trame-server/commit/1ae81424e2af6fd7b5044da65d66777dddc07a42))
+* **coverage:** Add setup.py to .coveragerc ([`ee4f01b`](https://github.com/Kitware/trame-server/commit/ee4f01b87e7e09c5641f0a0acf027d304b3cef8b))
+
 ## v2.1.4 (2022-06-14)
 ### Fix
 * **desktop:** Add support for gui option ([`2d59706`](https://github.com/Kitware/trame-server/commit/2d59706b5bb209ccc181bffaf3c22065060a27fa))
