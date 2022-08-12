@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.1.6 (2022-08-12)
+### Fix
+* **wslink:** Handle new --reverse-url cli arg ([`eb4eceb`](https://github.com/Kitware/trame-server/commit/eb4ecebab1c6e87fad501d74afad93a63852e005))
+
 ## v2.1.5 (2022-08-10)
 ### Fix
 * **trigger:** Allow triggers to return something ([`aebfb01`](https://github.com/Kitware/trame-server/commit/aebfb017889d7fc40690925cf457959896fa097a))
