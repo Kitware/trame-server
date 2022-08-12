@@ -425,14 +425,22 @@ class Server:
                 lambda **_: start_browser(self, **kwargs)
             )
 
-        if show_connection_info and exec_mode != "task":
+        # Allow for older wslink versions where this was not an attribute
+        reverse_url = getattr(options, "reverse_url", None)
+
+        if not reverse_url and show_connection_info and exec_mode != "task":
             from .utils.server import print_informations
 
             self.controller.on_server_ready.add(
                 lambda **kwargs: print_informations(self)
             )
 
-        if open_browser and exec_mode != "task" and not options.server:
+        if (
+            not reverse_url
+            and open_browser
+            and exec_mode != "task"
+            and not options.server
+        ):
             from .utils.browser import open_browser
 
             self.controller.on_server_ready.add(lambda **kwargs: open_browser(self))
