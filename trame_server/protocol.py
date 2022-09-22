@@ -57,6 +57,8 @@ class CoreServer(ServerProtocol):
 
     def set_server(self, _server):
         self.server._server = _server
+        if self.server.controller.on_server_bind.exists():
+            self.server.controller.on_server_bind(_server)
 
     def port_callback(self, port_used):
         self.server._running_port = port_used
