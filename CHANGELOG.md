@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.2.0 (2022-09-22)
+### Feature
+* **wslink:** Add lifecycle to allow web server routes to be added ([`9432cc8`](https://github.com/Kitware/trame-server/commit/9432cc855adc7430dc337c4efcd756c356304840))
+
 ## v2.1.6 (2022-08-12)
 ### Fix
 * **wslink:** Handle new --reverse-url cli arg ([`eb4eceb`](https://github.com/Kitware/trame-server/commit/eb4ecebab1c6e87fad501d74afad93a63852e005))
