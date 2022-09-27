@@ -58,7 +58,13 @@ class CoreServer(ServerProtocol):
     def set_server(self, _server):
         self.server._server = _server
         if self.server.controller.on_server_bind.exists():
+            # Hack - use internal of aiohttp to rework routes order
+            # FIXME: WON'T WORK with a different backend
+            server_routes = _server.app.router._resources
+            wslink_routes = list(server_routes)
+            server_routes.clear()
             self.server.controller.on_server_bind(_server)
+            server_routes.extend(wslink_routes)
 
     def port_callback(self, port_used):
         self.server._running_port = port_used
