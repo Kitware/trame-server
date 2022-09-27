@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v2.2.1 (2022-09-27)
+### Fix
+* **aiohttp.router:** Simplify route management ([`245baaf`](https://github.com/Kitware/trame-server/commit/245baaf682ff27ed46df0ace473c6b8adcefe916))
+* **controller:** Add support for async tasks ([`45bf037`](https://github.com/Kitware/trame-server/commit/45bf037889e684044eb1431922b8f40f9621bd67))
+
 ## v2.2.0 (2022-09-22)
 ### Feature
 * **wslink:** Add lifecycle to allow web server routes to be added ([`9432cc8`](https://github.com/Kitware/trame-server/commit/9432cc855adc7430dc337c4efcd756c356304840))
