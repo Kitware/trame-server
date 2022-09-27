@@ -1,4 +1,4 @@
-from .utils import is_dunder
+from .utils import is_dunder, asynchronous
 
 
 class Controller:
@@ -109,6 +109,51 @@ class Controller:
 
         return register_ctrl_method
 
+    def add_task(self, name, clear=False):
+        """
+        Use as decorator `@ctrl.add_task(name)` so the decorated function
+        will be added to a given controller name
+
+        :param name: Controller method name to be added to
+        :type name: str
+
+        .. code-block::
+
+            ctrl = server.controller
+
+            @ctr.add_task("on_server_ready")
+            async def on_ready(**state):
+                pass
+
+            # or
+            ctrl.on_server_ready.add_task(on_ready)
+
+        You can also make sure when the method get registered we clear
+        any previous content.
+
+        .. code-block::
+
+            ctrl = server.controller
+
+            @ctr.add_task("on_server_ready", clear=True)
+            async def on_ready(**state):
+                pass
+
+            # or
+            ctrl.on_server_ready.clear()
+            ctrl.on_server_ready.add_task(on_ready)
+
+        """
+
+        def register_ctrl_method(func):
+            if clear:
+                self[name].clear()
+
+            self[name].add_task(func)
+            return func
+
+        return register_ctrl_method
+
     def set(self, name, clear=False):
         """
         Use as decorator `@ctrl.set(name)` so the decorated function
@@ -170,6 +215,7 @@ class ControllerFunction:
         self.name = name
         self.func = func
         self.funcs = set()
+        self.task_funcs = set()
 
     def __call__(self, *args, **kwargs):
         if self.func is None and len(self.funcs) == 0:
@@ -184,6 +230,10 @@ class ControllerFunction:
 
         # Exec added fn after
         results = list(map(lambda f: f(*args, **kwargs), copy_list))
+
+        # Schedule any task
+        for task_fn in list(self.task_funcs):
+            asynchronous.create_task(task_fn(*args, **kwargs))
 
         # Figure out return
         if self.func is None:
@@ -201,6 +251,15 @@ class ControllerFunction:
         """
         self.funcs.add(func)
 
+    def add_task(self, func):
+        """
+        Add task to the set of coroutine to be called when
+        the current ControllerFunction is called.
+
+        :param func: Function to add
+        """
+        self.task_funcs.add(func)
+
     def discard(self, func):
         """
         Discard function to the set of functions to be called when
@@ -209,6 +268,7 @@ class ControllerFunction:
         :param func: Function to discard
         """
         self.funcs.discard(func)
+        self.task_funcs.discard(func)
 
     def remove(self, func):
         """
@@ -218,6 +278,15 @@ class ControllerFunction:
         :param func: Function to remove
         """
         self.funcs.remove(func)
+
+    def remove_task(self, func):
+        """
+        Remove task function to the set of functions to be called when
+        the current ControllerFunction is called.
+
+        :param func: Function to remove
+        """
+        self.task_funcs.remove(func)
 
     def clear(self, set_only=False):
         """
@@ -229,6 +298,7 @@ class ControllerFunction:
             self.func = None
 
         self.funcs.clear()
+        self.task_funcs.clear()
 
     def exists(self):
         """
@@ -238,7 +308,7 @@ class ControllerFunction:
         """
         if self.func is not None:
             return True
-        return len(self.funcs) > 0
+        return len(self.funcs) + len(self.task_funcs) > 0
 
 
 class FunctionNotImplementedError(Exception):
