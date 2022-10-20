@@ -1,4 +1,5 @@
-from .utils import is_dunder, is_private
+import inspect
+from .utils import is_dunder, is_private, asynchronous
 
 __all__ = [
     "State",
@@ -149,6 +150,16 @@ class State:
         for key in _args:
             self._pending_update.setdefault(key, self._pushed_state.get(key))
 
+    def clean(self, *_args):
+        """
+        Save pending variable(s) and unmark them as dirty.
+        This will prevent change listener(s) to react or the client
+        to be aware of any change.
+        """
+        for key in _args:
+            if key in self._pending_update:
+                self._pushed_state[key] = self._pending_update.pop(key)
+
     def update(self, _dict):
         """Update the current state dict with the provided one"""
         self._pending_update.update(_dict)
@@ -176,7 +187,10 @@ class State:
                 # Execute state listeners
                 self._state_listeners.add_all(_keys)
                 for callback in self._state_listeners:
-                    callback(**self._pushed_state)
+                    coroutine = callback(**self._pushed_state)
+                    if inspect.isawaitable(coroutine):
+                        asynchronous.create_task(coroutine)
+
                 self._state_listeners.clear()
 
                 # Check if state change from state listeners
