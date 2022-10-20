@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v2.3.0 (2022-10-20)
+### Feature
+* **state:** Allow state change to be async + add clean method ([`fa41cdd`](https://github.com/Kitware/trame-server/commit/fa41cdd8947319a0c685db9e5b835fca68175295))
+
+### Fix
+* **state:** Better network handling for collaboration ([`b3b0e2f`](https://github.com/Kitware/trame-server/commit/b3b0e2fd3ef324f9512473993aff19f867c8cd61))
+
 ## v2.2.1 (2022-09-27)
 ### Fix
 * **aiohttp.router:** Simplify route management ([`245baaf`](https://github.com/Kitware/trame-server/commit/245baaf682ff27ed46df0ace473c6b8adcefe916))
