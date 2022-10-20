@@ -6,6 +6,7 @@ from wslink import register as exportRpc
 from wslink.websocket import ServerProtocol
 
 from trame_server.utils import logger
+from trame_server.state import TRAME_NON_INIT_VALUE
 
 
 class CoreServer(ServerProtocol):
@@ -49,6 +50,7 @@ class CoreServer(ServerProtocol):
         self.rpcMethods = {}
         self.server = CoreServer.server
         self.server._root_protocol = self
+        self._clients_state = {}
 
         for configure in self.server._protocols_to_configure:
             configure(self)
@@ -99,9 +101,24 @@ class CoreServer(ServerProtocol):
     # Publish
     # ---------------------------------------------------------------
 
-    def push_state_change(self, modified_state):
-        logger.state_s2c(modified_state)
-        self.publish("trame.state.topic", modified_state)
+    def push_state_change(self, modified_state, skip_last_active_client=False):
+        # Only send changes
+        state_to_send = {}
+        for key, value in modified_state.items():
+            if self._clients_state.get(key, TRAME_NON_INIT_VALUE) != value:
+                state_to_send[key] = value
+
+        # Log and send state
+        if state_to_send:
+            logger.state_s2c(state_to_send)
+            self.publish(
+                "trame.state.topic",
+                state_to_send,
+                skip_last_active_client=skip_last_active_client,
+            )
+
+        # Keep track of last push
+        self._clients_state.update(state_to_send)
 
     # ---------------------------------------------------------------
 
@@ -153,5 +170,12 @@ class CoreServer(ServerProtocol):
         logger.state_c2s(changes)
 
         with self.server.state:
+            client_state = {}
             for change in changes:
-                self.server.state[change["key"]] = change.get("value")
+                client_state[change["key"]] = change.get("value")
+
+            # Push to other clients (collaboration) before flush
+            self.push_state_change(client_state, skip_last_active_client=True)
+
+            # Update server state
+            self.server.state.update(client_state)
