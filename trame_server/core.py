@@ -270,6 +270,12 @@ class Server:
             help="Use OS built-in browser",
             action="store_true",
         )
+        self._cli_parser.add_argument(
+            "--no-http",
+            help="Do not serve anything over http",
+            dest="no_http",
+            action="store_true",
+        )
 
         CoreServer.add_arguments(self._cli_parser)
 
@@ -455,6 +461,11 @@ class Server:
                 else:
                     endpoints.append(f"{key}={value}")
             options.fsEndpoints = "|".join(endpoints)
+
+        # Reset http delivery
+        if options.no_http:
+            options.content = ""
+            options.fsEndpoints = ""
 
         CoreServer.configure(options)
 
