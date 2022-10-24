@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.0 (2022-10-24)
+### Feature
+* **no-http:** Add cmd option to disable HTTP serving ([`d34c471`](https://github.com/Kitware/trame-server/commit/d34c4719faf6ff1dc5d223ee3adbc42fb6d17d7c))
+
 ## v2.3.0 (2022-10-20)
 ### Feature
 * **state:** Allow state change to be async + add clean method ([`fa41cdd`](https://github.com/Kitware/trame-server/commit/fa41cdd8947319a0c685db9e5b835fca68175295))
