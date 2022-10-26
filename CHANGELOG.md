@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.4.1 (2022-10-26)
+### Fix
+* **file-upload:** Properly filter fields for client sync ([`1656aab`](https://github.com/Kitware/trame-server/commit/1656aab27dddeea1a4128aef6f437a18dde395c6))
+
 ## v2.4.0 (2022-10-24)
 ### Feature
 * **no-http:** Add cmd option to disable HTTP serving ([`d34c471`](https://github.com/Kitware/trame-server/commit/d34c4719faf6ff1dc5d223ee3adbc42fb6d17d7c))
