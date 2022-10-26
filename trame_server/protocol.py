@@ -5,7 +5,7 @@ from wslink import server
 from wslink import register as exportRpc
 from wslink.websocket import ServerProtocol
 
-from trame_server.utils import logger
+from trame_server.utils import logger, clean_state
 from trame_server.state import TRAME_NON_INIT_VALUE
 
 
@@ -175,7 +175,9 @@ class CoreServer(ServerProtocol):
                 client_state[change["key"]] = change.get("value")
 
             # Push to other clients (collaboration) before flush
-            self.push_state_change(client_state, skip_last_active_client=True)
+            self.push_state_change(
+                clean_state(client_state), skip_last_active_client=True
+            )
 
             # Update server state
             self.server.state.update(client_state)
