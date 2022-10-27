@@ -1,3 +1,7 @@
+import json
+from . import logger
+
+
 def is_dunder(s):
     # Check if this is a double underscore (dunder) name
     return len(s) > 4 and s.isascii() and s[:2] == s[-2:] == "__"
@@ -9,10 +13,19 @@ def is_private(s):
 
 def clean_state(state):
     cleaned = {}
+    str_values = {}
     for key in state:
-        cleaned[key] = clean_value(state[key])
+        value = clean_value(state[key])
+        try:
+            str_value = json.dumps(value)
+            cleaned[key] = value
+            str_values[key] = str_value
+        except TypeError:
+            logger.error(
+                f"Skip state value for '{key}' since its content is not serializable"
+            )
 
-    return cleaned
+    return cleaned, str_values
 
 
 def clean_value(value):

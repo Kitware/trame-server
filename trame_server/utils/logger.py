@@ -61,3 +61,15 @@ def action_s2c(data):
 
 def action_c2s(data):
     state_exchange(StateExchangeType.ACTION_CLIENT_TO_SERVER, data)
+
+
+def error(message):
+    print(f"Error: {message}", flush=True)
+    if OUTPUT_LOG:
+        with open(OUTPUT_LOG, "a") as f:
+            f.write("-" * 60)
+            f.write("\nERROR: ")
+            f.write(message)
+            f.write("\n")
+            f.write("-" * 60)
+            f.write("\n")

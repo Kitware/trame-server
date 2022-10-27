@@ -102,10 +102,13 @@ class CoreServer(ServerProtocol):
     # ---------------------------------------------------------------
 
     def push_state_change(self, modified_state, skip_last_active_client=False):
+        ok, str_values = clean_state(modified_state)
         # Only send changes
         state_to_send = {}
-        for key, value in modified_state.items():
-            if self._clients_state.get(key, TRAME_NON_INIT_VALUE) != value:
+        for key, value in ok.items():
+            prev_str = self._clients_state.get(key, TRAME_NON_INIT_VALUE)
+            new_str = str_values.get(key, TRAME_NON_INIT_VALUE)
+            if prev_str != new_str:
                 state_to_send[key] = value
 
         # Log and send state
@@ -118,7 +121,7 @@ class CoreServer(ServerProtocol):
             )
 
         # Keep track of last push
-        self._clients_state.update(state_to_send)
+        self._clients_state.update(str_values)
 
     # ---------------------------------------------------------------
 
@@ -146,9 +149,11 @@ class CoreServer(ServerProtocol):
 
     @exportRpc("trame.state.get")
     def get_server_state(self):
-        initial_state = self.server.get_server_state()
-        logger.initial_state(initial_state)
-        return initial_state
+        server_state = self.server.get_server_state()
+        ok, _ = clean_state(server_state.get("state", {}))
+        state_to_send = {**server_state, "state": ok}
+        logger.initial_state(state_to_send)
+        return state_to_send
 
     # ---------------------------------------------------------------
 
@@ -175,9 +180,7 @@ class CoreServer(ServerProtocol):
                 client_state[change["key"]] = change.get("value")
 
             # Push to other clients (collaboration) before flush
-            self.push_state_change(
-                clean_state(client_state), skip_last_active_client=True
-            )
+            self.push_state_change(client_state, skip_last_active_client=True)
 
             # Update server state
             self.server.state.update(client_state)

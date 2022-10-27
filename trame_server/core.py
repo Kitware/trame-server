@@ -98,7 +98,7 @@ class Server:
 
     def _push_state(self, state):
         if self.protocol:
-            self.protocol.push_state_change(utils.clean_state(state))
+            self.protocol.push_state_change(state)
 
     # -------------------------------------------------------------------------
     # Initialization helper
@@ -316,10 +316,9 @@ class Server:
 
     def get_server_state(self):
         """Return the current server state"""
-        shared_state = utils.clean_state(self.state.initial)
         state = {
             "name": self._name,
-            "state": shared_state,
+            "state": self.state.initial,
         }
         return state
 
