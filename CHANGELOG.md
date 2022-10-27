@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.5.0 (2022-10-27)
+### Feature
+* **state:** Report when state key is not serializable ([`fac8866`](https://github.com/Kitware/trame-server/commit/fac886650d53d052b79d70ac8b99a4847e98ca76))
+
 ## v2.4.1 (2022-10-26)
 ### Fix
 * **file-upload:** Properly filter fields for client sync ([`1656aab`](https://github.com/Kitware/trame-server/commit/1656aab27dddeea1a4128aef6f437a18dde395c6))
