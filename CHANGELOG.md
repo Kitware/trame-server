@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.5.1 (2022-11-09)
+### Fix
+* **isascii:** Add python3.6 compatible isascii() method ([`a957cdf`](https://github.com/Kitware/trame-server/commit/a957cdf9497aa72b3137cd9e390652311922b285))
+
 ## v2.5.0 (2022-10-27)
 ### Feature
 * **state:** Report when state key is not serializable ([`fac8866`](https://github.com/Kitware/trame-server/commit/fac886650d53d052b79d70ac8b99a4847e98ca76))
