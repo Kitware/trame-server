@@ -1,14 +1,42 @@
 import json
+import sys
+
 from . import logger
+
+
+def _isascii_36(s):
+    # For Python < 3.7, we have to use our own isascii() function.
+    # This works for both bytes and strings.
+    try:
+        if isinstance(s, str):
+            s.encode("ascii")
+        else:
+            # Assume bytes
+            s.decode("ascii")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return False
+    else:
+        return True
+
+
+def _isascii_37(s):
+    # For Python >= 3.7, use the built-in function
+    return s.isascii()
+
+
+if sys.version_info >= (3, 7):
+    isascii = _isascii_37
+else:
+    isascii = _isascii_36
 
 
 def is_dunder(s):
     # Check if this is a double underscore (dunder) name
-    return len(s) > 4 and s.isascii() and s[:2] == s[-2:] == "__"
+    return len(s) > 4 and isascii(s) and s[:2] == s[-2:] == "__"
 
 
 def is_private(s):
-    return s.isascii() and s[0] == "_"
+    return isascii(s) and s[0] == "_"
 
 
 def clean_state(state):
