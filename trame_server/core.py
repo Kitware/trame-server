@@ -276,6 +276,12 @@ class Server:
             dest="no_http",
             action="store_true",
         )
+        self._cli_parser.add_argument(
+            "--authKeyFile",
+            help="""Path to a File that contains the Authentication key for clients
+                    to connect to the WebSocket.
+                    This takes precedence over '-a, --authKey' from wslink.""",
+        )
 
         CoreServer.add_arguments(self._cli_parser)
 

@@ -32,7 +32,11 @@ class CoreServer(ServerProtocol):
 
     @staticmethod
     def configure(args):
-        CoreServer.authentication_token = args.authKey
+        if args.authKeyFile:
+            with open(args.authKeyFile) as key_file:
+                CoreServer.authentication_token = key_file.read().strip()
+        else:
+            CoreServer.authentication_token = args.authKey
 
     @staticmethod
     def server_start(options, **kwargs):
