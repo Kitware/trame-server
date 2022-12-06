@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v2.6.0 (2022-12-06)
+### Feature
+* **security:** Moved authKeyFile argument from wslink to trame-server ([`9c3b6fc`](https://github.com/Kitware/trame-server/commit/9c3b6fc5757fc6ca3ef1954f01216d64919d72e0))
+* **security:** Use authKeyFile argument if present ([`5c4fb3b`](https://github.com/Kitware/trame-server/commit/5c4fb3b227e8085073ce15dc3a9b5603db93b426))
+
 ## v2.5.1 (2022-11-09)
 ### Fix
 * **isascii:** Add python3.6 compatible isascii() method ([`a957cdf`](https://github.com/Kitware/trame-server/commit/a957cdf9497aa72b3137cd9e390652311922b285))
