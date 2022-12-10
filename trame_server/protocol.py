@@ -1,5 +1,5 @@
 import os
-import asyncio
+import inspect
 
 from wslink import server
 from wslink import register as exportRpc
@@ -84,7 +84,6 @@ class CoreServer(ServerProtocol):
 
     def getRPCMethod(self, name):
         if len(self.rpcMethods) == 0:
-            import inspect
 
             def is_method(x):
                 return inspect.ismethod(x) or inspect.isfunction(x)
@@ -166,9 +165,10 @@ class CoreServer(ServerProtocol):
         logger.action_c2s({"name": name, "args": args, "kwargs": kwargs})
         with self.server.state:
             if name in self.server._triggers:
-                return await asyncio.coroutine(self.server._triggers[name])(
-                    *args, **kwargs
-                )
+                result = self.server._triggers[name](*args, **kwargs)
+                if inspect.isawaitable(result):
+                    result = await result
+                return result
             else:
                 print(f"Trigger {name} seems to be missing")
 
