@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.6.1 (2022-12-10)
+### Fix
+* **corountine:** Remove deprecated API for Py 3.11 ([`82d945d`](https://github.com/Kitware/trame-server/commit/82d945d319c3f8c87c8797f4318e44b964e35e25))
+
 ## v2.6.0 (2022-12-06)
 ### Feature
 * **security:** Moved authKeyFile argument from wslink to trame-server ([`9c3b6fc`](https://github.com/Kitware/trame-server/commit/9c3b6fc5757fc6ca3ef1954f01216d64919d72e0))
