@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.7.0 (2023-01-09)
+### Feature
+* **ready:** Add ready future on server to await ([`6b72322`](https://github.com/Kitware/trame-server/commit/6b72322c06a5ade065355e2ffbd5d74206a89464))
+
 ## v2.6.1 (2022-12-10)
 ### Fix
 * **corountine:** Remove deprecated API for Py 3.11 ([`82d945d`](https://github.com/Kitware/trame-server/commit/82d945d319c3f8c87c8797f4318e44b964e35e25))
