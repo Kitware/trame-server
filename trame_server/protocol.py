@@ -80,6 +80,10 @@ class CoreServer(ServerProtocol):
             if self.server.controller.on_server_ready.exists():
                 self.server.controller.on_server_ready(**self.server.state.to_dict())
 
+            # Mark the server as ready
+            if not self.server.ready.done():
+                self.server.ready.set_result(True)
+
     # ---------------------------------------------------------------
 
     def getRPCMethod(self, name):

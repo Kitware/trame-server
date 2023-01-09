@@ -36,6 +36,7 @@ class Server:
         self._server = None
         self._running_port = 0
         self._running_stage = 0  # 0: off / 1: pending / 2: running
+        self._running_future = None
         self._name = name
         self._www = None
         self._options = options
@@ -316,6 +317,14 @@ class Server:
         """Return True if the server is currently starting or running."""
         return self._running_stage > 1
 
+    @property
+    def ready(self):
+        """Return a future that will resolve once the server is ready"""
+        if self._running_future is None:
+            self._running_future = asyncio.get_running_loop().create_future()
+
+        return self._running_future
+
     # -------------------------------------------------------------------------
     # API for network handling
     # -------------------------------------------------------------------------
@@ -511,6 +520,7 @@ class Server:
         """Coroutine for stopping the server"""
         if self._running_stage:
             await self._server.stop()
+            self._running_future = None
 
     @property
     def port(self):
