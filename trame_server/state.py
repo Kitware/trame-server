@@ -1,5 +1,6 @@
 import inspect
 from .utils import is_dunder, is_private, asynchronous
+from .utils.hot_reload import reload
 
 __all__ = [
     "State",
@@ -36,14 +37,18 @@ class State:
     """
 
     def __init__(self, server):
+        self._server = server
         self._pending_update = {}
         self._pushed_state = {}
         #
         self._state_listeners = StateChangeHandler(server._change_callbacks)
         self._push_state_fn = server._push_state
-        self._change = server.change
         #
         self._pending_initialization = True
+
+    @property
+    def _hot_reload(self):
+        return self._server.hot_reload
 
     def server_ready(self):
         self._pending_initialization = False
@@ -187,6 +192,10 @@ class State:
                 # Execute state listeners
                 self._state_listeners.add_all(_keys)
                 for callback in self._state_listeners:
+
+                    if self._hot_reload:
+                        callback = reload(callback)
+
                     coroutine = callback(**self._pushed_state)
                     if inspect.isawaitable(coroutine):
                         asynchronous.create_task(coroutine)
@@ -201,7 +210,7 @@ class State:
     @property
     def change(self):
         """Function decorator for registering state change executions"""
-        return self._change
+        return self._server.change
 
     @property
     def initial(self):

@@ -2,3 +2,6 @@
 
 # Match the max line length we have set for black
 max-line-length = 88
+
+# Black sometimes conflicts with flake8 here
+extend-ignore = E203
