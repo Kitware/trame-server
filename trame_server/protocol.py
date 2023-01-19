@@ -39,8 +39,17 @@ class CoreServer(ServerProtocol):
             CoreServer.authentication_token = args.authKey
 
     @staticmethod
-    def server_start(options, **kwargs):
-        return server.start_webserver(options=options, protocol=CoreServer, **kwargs)
+    def server_start(
+        options, disable_logging=False, backend="aiohttp", exec_mode="main"
+    ):
+        # NOTE: **kwargs to wslink's start_webserver are unused
+        return server.start_webserver(
+            options=options,
+            protocol=CoreServer,
+            disableLogging=disable_logging,
+            backend=backend,
+            exec_mode=exec_mode,
+        )
 
     @staticmethod
     def server_stop():

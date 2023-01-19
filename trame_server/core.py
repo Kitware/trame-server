@@ -386,6 +386,7 @@ class Server:
         backend: str = "aiohttp",
         exec_mode: str = "main",
         timeout: int = None,
+        host: str = "localhost",
         **kwargs,
     ):
         """
@@ -412,6 +413,7 @@ class Server:
         :param timeout: How much second should we wait before automatically
                         stopping the server when no client is connected.
                         Setting it to 0 will disable such auto-shutdown.
+        :param host: The hostname used to bind the server.
         :param **kwargs: Keyword arguments for capturing optional parameters
                          for wslink server and/or desktop browser
         """
@@ -420,6 +422,8 @@ class Server:
 
         CoreServer.bind_server(self)
         options = self.cli.parse_known_args()[0]
+
+        options.host = host
 
         if timeout is not None:
             options.timeout = timeout
@@ -486,12 +490,9 @@ class Server:
         self._running_stage = 1
         task = CoreServer.server_start(
             options,
-            **{  # Do a proper merging/override
-                **kwargs,
-                "disableLogging": disable_logging,
-                "backend": backend,
-                "exec_mode": exec_mode,
-            },
+            disable_logging=disable_logging,
+            backend=backend,
+            exec_mode=exec_mode,
         )
 
         # Manage exit life cycle unless coroutine
