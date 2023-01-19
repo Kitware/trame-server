@@ -40,15 +40,20 @@ class CoreServer(ServerProtocol):
 
     @staticmethod
     def server_start(
-        options, disable_logging=False, backend="aiohttp", exec_mode="main"
+        options,
+        disable_logging=False,
+        backend="aiohttp",
+        exec_mode="main",
+        **kwargs,
     ):
-        # NOTE: **kwargs to wslink's start_webserver are unused
+        # NOTE: **kwargs to wslink's start_webserver are currently unused
         return server.start_webserver(
             options=options,
             protocol=CoreServer,
             disableLogging=disable_logging,
             backend=backend,
             exec_mode=exec_mode,
+            **kwargs,
         )
 
     @staticmethod

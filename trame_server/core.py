@@ -493,6 +493,7 @@ class Server:
             disable_logging=disable_logging,
             backend=backend,
             exec_mode=exec_mode,
+            **kwargs,
         )
 
         # Manage exit life cycle unless coroutine
