@@ -386,7 +386,7 @@ class Server:
         backend: str = "aiohttp",
         exec_mode: str = "main",
         timeout: int = None,
-        host: str = "localhost",
+        host: str = None,
         **kwargs,
     ):
         """
@@ -413,7 +413,9 @@ class Server:
         :param timeout: How much second should we wait before automatically
                         stopping the server when no client is connected.
                         Setting it to 0 will disable such auto-shutdown.
-        :param host: The hostname used to bind the server.
+        :param host: The hostname used to bind the server. This can also be
+                     set with the environment variable ``TRAME_DEFAULT_HOST``.
+                     Defaults to ``'localhost'``.
         :param **kwargs: Keyword arguments for capturing optional parameters
                          for wslink server and/or desktop browser
         """
@@ -423,6 +425,8 @@ class Server:
         CoreServer.bind_server(self)
         options = self.cli.parse_known_args()[0]
 
+        if host is None:
+            host = os.environ.get("TRAME_DEFAULT_HOST", "localhost")
         options.host = host
 
         if timeout is not None:
