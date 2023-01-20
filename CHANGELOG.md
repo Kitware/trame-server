@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.7.1 (2023-01-20)
+### Fix
+* Use host argument with wslink ([#8](https://github.com/Kitware/trame-server/issues/8)) ([`8935e6a`](https://github.com/Kitware/trame-server/commit/8935e6a1c434f5054b1dda89482c34c4e1595276))
+
 ## v2.7.0 (2023-01-09)
 ### Feature
 * **ready:** Add ready future on server to await ([`6b72322`](https://github.com/Kitware/trame-server/commit/6b72322c06a5ade065355e2ffbd5d74206a89464))
