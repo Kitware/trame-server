@@ -41,7 +41,7 @@ class CoreServer(ServerProtocol):
     @staticmethod
     def server_start(
         options,
-        disable_logging=False,
+        disableLogging=False,
         backend="aiohttp",
         exec_mode="main",
         **kwargs,
@@ -50,7 +50,7 @@ class CoreServer(ServerProtocol):
         return server.start_webserver(
             options=options,
             protocol=CoreServer,
-            disableLogging=disable_logging,
+            disableLogging=disableLogging,
             backend=backend,
             exec_mode=exec_mode,
             **kwargs,
