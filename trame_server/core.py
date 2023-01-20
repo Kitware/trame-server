@@ -1,7 +1,8 @@
-import os
 import argparse
 import asyncio
 import logging
+import os
+import sys
 
 from . import utils
 
@@ -42,7 +43,7 @@ class Server:
         self._options = options
 
         # Controller
-        self._controller = Controller(self.trigger, self.trigger_name)
+        self._controller = Controller(self)
 
         # UI
         self._ui = VirtualNodeManager(self, vn_constructor)
@@ -92,6 +93,11 @@ class Server:
         )
         # reset default wslink startup message
         os.environ["WSLINK_READY_MSG"] = ""
+
+        # Initialize hot reload
+        self.hot_reload = "--hot-reload" in sys.argv or bool(
+            os.getenv("TRAME_HOT_RELOAD", False)
+        )
 
     # -------------------------------------------------------------------------
     # State management helpers
@@ -195,6 +201,7 @@ class Server:
             for name in _args:
                 if name not in self._change_callbacks:
                     self._change_callbacks[name] = []
+
                 self._change_callbacks[name].append(func)
             return func
 
@@ -282,6 +289,13 @@ class Server:
             help="""Path to a File that contains the Authentication key for clients
                     to connect to the WebSocket.
                     This takes precedence over '-a, --authKey' from wslink.""",
+        )
+        self._cli_parser.add_argument(
+            "--hot-reload",
+            help="""Automatically reload state/controller callback functions for every
+                    function call. This allows live editing of the functions. Functions
+                    located in the site-packages directories are skipped.""",
+            action="store_true",
         )
 
         CoreServer.add_arguments(self._cli_parser)

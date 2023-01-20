@@ -1,4 +1,5 @@
 from .utils import is_dunder, asynchronous
+from .utils.hot_reload import reload
 
 
 class Controller:
@@ -29,10 +30,21 @@ class Controller:
     >>> ctrl.on_data_change.clear(set_only=True) # add, remove, discard, clear
     """
 
-    def __init__(self, trigger_decorator, trigger_name):
+    def __init__(self, server):
+        super().__setattr__("_server", server)
         super().__setattr__("_func_dict", {})
-        self.trigger = trigger_decorator
-        self.trigger_name = trigger_name
+
+    @property
+    def trigger(self):
+        return self._server.trigger
+
+    @property
+    def trigger_name(self):
+        return self._server.trigger_name
+
+    @property
+    def __trame_hot_reload__(self):
+        return self._server.hot_reload
 
     def __getitem__(self, name):
         return self.__getattr__(name)
@@ -45,7 +57,7 @@ class Controller:
             return super().__getattr__(name)
 
         if name not in self._func_dict:
-            self._func_dict[name] = ControllerFunction(name)
+            self._func_dict[name] = ControllerFunction(self, name)
 
         return self._func_dict[name]
 
@@ -62,7 +74,7 @@ class Controller:
         if name in self._func_dict:
             self._func_dict[name].func = func
         else:
-            self._func_dict[name] = ControllerFunction(name, func)
+            self._func_dict[name] = ControllerFunction(self, name, func)
 
     def add(self, name, clear=False):
         """
@@ -209,7 +221,9 @@ class ControllerFunction:
     raised.
     """
 
-    def __init__(self, name, func=None):
+    def __init__(self, controller, name, func=None):
+        # The controller is needed to check for settings like hot reload
+        self.controller = controller
         # The name is needed to provide more helpful information upon
         # a FunctionNotImplementedError exception.
         self.name = name
@@ -226,13 +240,24 @@ class ControllerFunction:
         # Exec main function first
         result = None
         if self.func is not None:
-            result = self.func(*args, **kwargs)
+            if self.hot_reload:
+                f = reload(self.func)
+            else:
+                f = self.func
+
+            result = f(*args, **kwargs)
+
+        if self.hot_reload:
+            copy_list = list(map(reload, copy_list))
 
         # Exec added fn after
         results = list(map(lambda f: f(*args, **kwargs), copy_list))
 
         # Schedule any task
         for task_fn in list(self.task_funcs):
+            if self.hot_reload:
+                task_fn = reload(task_fn)
+
             asynchronous.create_task(task_fn(*args, **kwargs))
 
         # Figure out return
@@ -309,6 +334,10 @@ class ControllerFunction:
         if self.func is not None:
             return True
         return len(self.funcs) + len(self.task_funcs) > 0
+
+    @property
+    def hot_reload(self):
+        return self.controller.__trame_hot_reload__
 
 
 class FunctionNotImplementedError(Exception):
