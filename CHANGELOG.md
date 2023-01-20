@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.7.2 (2023-01-20)
+### Fix
+* **dev:** Add hot reloading ([`5884ede`](https://github.com/Kitware/trame-server/commit/5884ede6a2662b830bba6d279d59abab0425e5e7))
+
 ## v2.7.1 (2023-01-20)
 ### Fix
 * Use host argument with wslink ([#8](https://github.com/Kitware/trame-server/issues/8)) ([`8935e6a`](https://github.com/Kitware/trame-server/commit/8935e6a1c434f5054b1dda89482c34c4e1595276))
