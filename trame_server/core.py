@@ -425,9 +425,10 @@ class Server:
         CoreServer.bind_server(self)
         options = self.cli.parse_known_args()[0]
 
-        if host is None:
-            host = os.environ.get("TRAME_DEFAULT_HOST", "localhost")
-        options.host = host
+        if options.host == "localhost":
+            if host is None:
+                host = os.environ.get("TRAME_DEFAULT_HOST", "localhost")
+            options.host = host
 
         if timeout is not None:
             options.timeout = timeout
