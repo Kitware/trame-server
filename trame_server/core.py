@@ -436,6 +436,10 @@ class Server:
         if self._running_stage:
             return
 
+        # Trigger on_server_start life cycle callback
+        if self.controller.on_server_start.exists():
+            self.controller.on_server_start(self)
+
         CoreServer.bind_server(self)
         options = self.cli.parse_known_args()[0]
 
