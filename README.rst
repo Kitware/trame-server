@@ -44,13 +44,14 @@ The `API Reference <https://trame.readthedocs.io/en/latest/index.html>`_ documen
 Life cycle events are directly managed on the application controller
 and are prefixed with `on_*`.
 
+* **on_server_start**     : Executed at server.start() call while passing the server as argument.
 * **on_server_bind**      : WSLinkServer is getting bound to trame so you can attach your own routes. Its instance will be passed as argument to callback.
 * **on_server_ready**     : All protocols initialized and available for client to connect
 * **on_client_connected** : Connection established to server
 * **on_client_exited**    : Linked to browser "beforeunload" event
 * **on_server_exited**    : Trame is exiting its event loop
 
-* **on_server_reload**    : If callback registered it is use for reloading server side modules
+* **on_server_reload**    : If callback registered it can be use to hot_reload methods like the UI.
 
 
 License
