@@ -121,6 +121,33 @@ class Controller:
 
         return register_ctrl_method
 
+    def once(self, name):
+        """
+        Use as decorator `@ctrl.once(name)` so the decorated function
+        will be added to a given controller name and will only execute once.
+
+        :param name: Controller method name to be added to
+        :type name: str
+
+        .. code-block::
+
+            ctrl = server.controller
+
+            @ctr.once("on_server_ready")
+            def on_ready(**state):
+                pass
+
+            # or
+            ctrl.on_server_ready.once(on_ready)
+
+        """
+
+        def register_ctrl_method(func):
+            self[name].once(func)
+            return func
+
+        return register_ctrl_method
+
     def add_task(self, name, clear=False):
         """
         Use as decorator `@ctrl.add_task(name)` so the decorated function
@@ -230,12 +257,14 @@ class ControllerFunction:
         self.func = func
         self.funcs = set()
         self.task_funcs = set()
+        self.funcs_once = set()
 
     def __call__(self, *args, **kwargs):
         if self.func is None and len(self.funcs) == 0:
             raise FunctionNotImplementedError(self.name)
 
-        copy_list = list(self.funcs)
+        copy_list = list(self.funcs) + list(self.funcs_once)
+        self.funcs_once.clear()
 
         # Exec main function first
         result = None
@@ -267,6 +296,16 @@ class ControllerFunction:
             return [result, *results]
         return result
 
+    def once(self, func):
+        """
+        Add function to the set of functions to be called when
+        the current ControllerFunction is called.
+        After first execution, the function will automatically be removed.
+
+        :param func: Function to add
+        """
+        self.funcs_once.add(func)
+
     def add(self, func):
         """
         Add function to the set of functions to be called when
@@ -293,6 +332,7 @@ class ControllerFunction:
         :param func: Function to discard
         """
         self.funcs.discard(func)
+        self.funcs_once.discard(func)
         self.task_funcs.discard(func)
 
     def remove(self, func):
@@ -323,6 +363,7 @@ class ControllerFunction:
             self.func = None
 
         self.funcs.clear()
+        self.funcs_once.clear()
         self.task_funcs.clear()
 
     def exists(self):
