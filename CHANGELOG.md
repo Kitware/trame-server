@@ -2,6 +2,13 @@
 
 <!--next-version-placeholder-->
 
+## v2.8.0 (2023-01-21)
+### Feature
+* **on_server_start:** Add new life cycle ([`0db1961`](https://github.com/Kitware/trame-server/commit/0db1961f36eee42dd1a16b0eb496104e8b2332b4))
+
+### Fix
+* **controller:** Add @once helper ([`f25db26`](https://github.com/Kitware/trame-server/commit/f25db2636a6fbf7ddf5d0c3e9d8dbda97e471fa3))
+
 ## v2.7.2 (2023-01-20)
 ### Fix
 * **dev:** Add hot reloading ([`5884ede`](https://github.com/Kitware/trame-server/commit/5884ede6a2662b830bba6d279d59abab0425e5e7))
