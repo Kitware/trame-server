@@ -335,7 +335,8 @@ class Server:
     def ready(self):
         """Return a future that will resolve once the server is ready"""
         if self._running_future is None:
-            self._running_future = asyncio.get_running_loop().create_future()
+            # Change this to `get_running_loop()` when we require Python >= 3.7
+            self._running_future = asyncio.get_event_loop().create_future()
 
         return self._running_future
 
