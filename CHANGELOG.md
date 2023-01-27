@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.8.1 (2023-01-27)
+### Fix
+* **version:** Add trame_server.__version__ ([`f6957f4`](https://github.com/Kitware/trame-server/commit/f6957f4dabee608c288ac841a38360fa286d1d67))
+
 ## v2.8.0 (2023-01-21)
 ### Feature
 * **on_server_start:** Add new life cycle ([`0db1961`](https://github.com/Kitware/trame-server/commit/0db1961f36eee42dd1a16b0eb496104e8b2332b4))
