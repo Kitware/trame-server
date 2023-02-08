@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.9.0 (2023-02-08)
+### Feature
+* **client_type:** Improve module handling to support vue2/3 ([`000899e`](https://github.com/Kitware/trame-server/commit/000899eac77d009281961ad68a98298e03752e42))
+
 ## v2.8.1 (2023-01-27)
 ### Fix
 * **version:** Add trame_server.__version__ ([`f6957f4`](https://github.com/Kitware/trame-server/commit/f6957f4dabee608c288ac841a38360fa286d1d67))
