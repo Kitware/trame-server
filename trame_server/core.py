@@ -41,6 +41,7 @@ class Server:
         self._name = name
         self._www = None
         self._options = options
+        self._client_type = None
 
         # Controller
         self._controller = Controller(self)
@@ -71,7 +72,7 @@ class Server:
 
         # Shared state + reserve internal keys
         self._state = State(self)
-        for key in ["scripts", "styles", "vue_use", "mousetrap"]:
+        for key in ["scripts", "module_scripts", "styles", "vue_use", "mousetrap"]:
             self._state[f"trame__{key}"] = []
         self._state.trame__client_only = ["trame__busy"]
         self._state.trame__busy = 1
@@ -122,38 +123,44 @@ class Server:
         The attributes that are getting processed in a module are the following:
           - setup(server, **kwargs): Function called first
           - scripts = []           : List all JavaScript URL that should be loaded
+          - module_scripts = []    : List all JavaScript URL as type=module to load
           - styles  = []           : List all CSS URL that should be loaded
           - vue_use = ['libName', ('libName2', { **options })]: List Vue plugin to load
           - state = {}             : Set of variable to add to state
           - server = { data: '/path/on/fs' }: Set of endpoints to server static content
           - www = '/path/on/fs'    : Path served as main web content
 
-        :param module: A module to enable
+        :param module: A module to enable or a dict()
         :param kwargs: Any optional parameters needed for your module setup() function.
         """
-        if module in self._loaded_modules:
+        # Make sure definitions is a dict while skipping already loaded module
+        definitions = module
+        if isinstance(definitions, dict):
+            definitions = module
+        elif definitions in self._loaded_modules:
             return
+        else:
+            self._loaded_modules.add(definitions)
+            definitions = definitions.__dict__
 
-        if "setup" in module.__dict__:
-            module.setup(self, **kwargs)
+        if "setup" in definitions:
+            definitions["setup"](self, **kwargs)
 
-        for key in ["scripts", "styles", "vue_use"]:
-            if key in module.__dict__:
-                self.state[f"trame__{key}"] += module.__dict__[key]
+        for key in ["scripts", "module_scripts", "styles", "vue_use"]:
+            if key in definitions:
+                self.state[f"trame__{key}"] += definitions[key]
 
-        if "state" in module.__dict__:
-            self.state.update(module.state)
+        if "state" in definitions:
+            self.state.update(definitions["state"])
 
-        if "serve" in module.__dict__:
-            self.serve.update(module.serve)
+        if "serve" in definitions:
+            self.serve.update(definitions["serve"])
 
-        if "www" in module.__dict__:
-            self._www = module.www
+        if "www" in definitions:
+            self._www = definitions["www"]
 
         # Reduce vue_use to merge options
         utils.reduce_vue_use(self.state)
-
-        self._loaded_modules.add(module)
 
     # -------------------------------------------------------------------------
     # Call methods
@@ -258,6 +265,27 @@ class Server:
     def options(self):
         """Server options provided at instantiation time"""
         return self._options
+
+    @property
+    def client_type(self):
+        """Specify the client type. Either 'vue2' or 'vue3' for now."""
+        if self._client_type is None:
+            return "vue2"  # default
+        return self._client_type
+
+    @client_type.setter
+    def client_type(self, value):
+        """Should only be called once before any widget initialization"""
+        if self._client_type is None:
+            self._client_type = value
+
+        if self.client_type != value:
+            raise TypeError(
+                f"""
+                Trying to switch client_type from {self._client_type} to {value}.
+                The client_type can only be set once.
+            """
+            )
 
     @property
     def cli(self):
@@ -435,6 +463,12 @@ class Server:
         """
         if self._running_stage:
             return
+
+        # Try to bind client if none were added
+        if self._www is None:
+            from trame_client import module
+
+            self.enable_module(module)
 
         # Trigger on_server_start life cycle callback
         if self.controller.on_server_start.exists():
