@@ -260,7 +260,7 @@ class ControllerFunction:
         self.funcs_once = set()
 
     def __call__(self, *args, **kwargs):
-        if self.func is None and len(self.funcs) == 0:
+        if self.func is None and len(self.funcs) + len(self.task_funcs) == 0:
             raise FunctionNotImplementedError(self.name)
 
         copy_list = list(self.funcs) + list(self.funcs_once)
@@ -287,13 +287,15 @@ class ControllerFunction:
             if self.hot_reload:
                 task_fn = reload(task_fn)
 
-            asynchronous.create_task(task_fn(*args, **kwargs))
+            results.append(asynchronous.create_task(task_fn(*args, **kwargs)))
 
         # Figure out return
         if self.func is None:
             return results
         elif len(copy_list):
             return [result, *results]
+        elif len(self.task_funcs):
+            return results
         return result
 
     def once(self, func):
