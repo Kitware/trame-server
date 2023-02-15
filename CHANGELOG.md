@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v2.9.1 (2023-02-15)
+### Fix
+* **on_server_exited:** Run exit tasks till completion for exec_mode=main ([`876d536`](https://github.com/Kitware/trame-server/commit/876d536e9f830feea96c4f60a18710fa5c8839a0))
+* **task_funcs:** Allow controller with only task_funcs ([`c6fd518`](https://github.com/Kitware/trame-server/commit/c6fd5189ada5edcdeaa99173badb72c7b7f3e8de))
+
 ## v2.9.0 (2023-02-08)
 ### Feature
 * **client_type:** Improve module handling to support vue2/3 ([`000899e`](https://github.com/Kitware/trame-server/commit/000899eac77d009281961ad68a98298e03752e42))
