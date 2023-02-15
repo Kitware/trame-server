@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import inspect
 import logging
 import os
 import sys
@@ -559,7 +560,16 @@ class Server:
         if exec_mode == "main":
             self._running_stage = 0
             if self.controller.on_server_exited.exists():
-                self.controller.on_server_exited(**self.state.to_dict())
+                loop = asyncio.get_event_loop()
+                for exit_task in self.controller.on_server_exited(
+                    **self.state.to_dict()
+                ):
+                    if inspect.isawaitable(exit_task):
+                        loop.run_until_complete(exit_task)
+                    elif callable(exit_task):
+                        result = exit_task()
+                        if inspect.isawaitable(result):
+                            loop.run_until_complete(result)
         elif hasattr(task, "add_done_callback"):
 
             def on_done(task: asyncio.Task) -> None:
