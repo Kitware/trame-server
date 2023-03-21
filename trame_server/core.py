@@ -1,4 +1,3 @@
-import argparse
 import asyncio
 import inspect
 import logging
@@ -11,6 +10,7 @@ from .state import State
 from .controller import Controller
 from .ui import VirtualNodeManager
 from .protocol import CoreServer
+from .utils.argument_parser import ArgumentParser
 
 
 class Server:
@@ -294,7 +294,7 @@ class Server:
         if self._cli_parser:
             return self._cli_parser
 
-        self._cli_parser = argparse.ArgumentParser(description="Kitware trame")
+        self._cli_parser = ArgumentParser(description="Kitware trame")
 
         # Trame specific args
         self._cli_parser.add_argument(
