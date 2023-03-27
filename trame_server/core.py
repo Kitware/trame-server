@@ -326,6 +326,13 @@ class Server:
                     located in the site-packages directories are skipped.""",
             action="store_true",
         )
+        self._cli_parser.add_argument(
+            "--trame-args",
+            help="""If specified, trame will ignore all other arguments, and only the contents
+                    of the `--trame-args` will be used. For example:
+                    `--trame-args="-p 8081 --server"`. Alternatively, the environment variable
+                    `TRAME_ARGS` may be set instead.""",
+        )
 
         CoreServer.add_arguments(self._cli_parser)
 
