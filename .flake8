@@ -1,7 +1,9 @@
 [flake8]
 
-# Match the max line length we have set for black
-max-line-length = 88
+# Just assume black did a good job with the line lengths
+ignore =
+    E501
 
 # Black sometimes conflicts with flake8 here
-extend-ignore = E203
+# Ignore white space before colon and after binary operator
+extend-ignore = E203, W503
