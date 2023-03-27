@@ -2,6 +2,11 @@
 
 <!--next-version-placeholder-->
 
+## v2.10.0 (2023-03-27)
+### Feature
+* **args:** Allow trame args to be specified separately ([`d2600c3`](https://github.com/Kitware/trame-server/commit/d2600c32a2acb18c7f700239e37581df85c9f57d))
+* **ArgumentParser:** Subclass and allow parsing disable ([`22746dd`](https://github.com/Kitware/trame-server/commit/22746dd171f2aca4ea2c6675eefd6ffc242c5f95))
+
 ## v2.9.1 (2023-02-15)
 ### Fix
 * **on_server_exited:** Run exit tasks till completion for exec_mode=main ([`876d536`](https://github.com/Kitware/trame-server/commit/876d536e9f830feea96c4f60a18710fa5c8839a0))
