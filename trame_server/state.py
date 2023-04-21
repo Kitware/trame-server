@@ -192,7 +192,6 @@ class State:
                 # Execute state listeners
                 self._state_listeners.add_all(_keys)
                 for callback in self._state_listeners:
-
                     if self._hot_reload:
                         callback = reload(callback)
 
