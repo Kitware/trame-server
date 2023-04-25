@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.11.0 (2023-04-25)
+### Feature
+* **py-client:** Add Python client to drive remote state ([`6904605`](https://github.com/Kitware/trame-server/commit/69046058a8d5334192bd07e1de81afb9f35007a5))
+
 ## v2.10.0 (2023-03-27)
 ### Feature
 * **args:** Allow trame args to be specified separately ([`d2600c3`](https://github.com/Kitware/trame-server/commit/d2600c32a2acb18c7f700239e37581df85c9f57d))
