@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.11.1 (2023-05-24)
+### Fix
+* **hot-reload:** Remove async task from reload ([`cba6a7f`](https://github.com/Kitware/trame-server/commit/cba6a7f0d8a778057c4febf8f6ae52939829b613))
+
 ## v2.11.0 (2023-04-25)
 ### Feature
 * **py-client:** Add Python client to drive remote state ([`6904605`](https://github.com/Kitware/trame-server/commit/69046058a8d5334192bd07e1de81afb9f35007a5))
