@@ -284,9 +284,6 @@ class ControllerFunction:
 
         # Schedule any task
         for task_fn in list(self.task_funcs):
-            if self.hot_reload:
-                task_fn = reload(task_fn)
-
             results.append(asynchronous.create_task(task_fn(*args, **kwargs)))
 
         # Figure out return
