@@ -193,7 +193,8 @@ class State:
                 self._state_listeners.add_all(_keys)
                 for callback in self._state_listeners:
                     if self._hot_reload:
-                        callback = reload(callback)
+                        if not inspect.iscoroutinefunction(callback):
+                            callback = reload(callback)
 
                     coroutine = callback(**self._pushed_state)
                     if inspect.isawaitable(coroutine):
