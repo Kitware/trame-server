@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v2.11.2 (2023-05-24)
+### Fix
+* **reload:** Don't reload state change corountine ([`ba05514`](https://github.com/Kitware/trame-server/commit/ba05514a688b5ac0449d68fb0d056ccbc40a9033))
+
 ## v2.11.1 (2023-05-24)
 ### Fix
 * **hot-reload:** Remove async task from reload ([`cba6a7f`](https://github.com/Kitware/trame-server/commit/cba6a7f0d8a778057c4febf8f6ae52939829b613))
