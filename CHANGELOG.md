@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.11.3 (2023-06-09)
+
+### Fix
+
+* **info:** Ensure dynamic port to be printed ([`0c7f53a`](https://github.com/Kitware/trame-server/commit/0c7f53a93acef70d3fc3a0a1eaf792a568926b8a))
+
 ## v2.11.2 (2023-05-24)
 ### Fix
 * **reload:** Don't reload state change corountine ([`ba05514`](https://github.com/Kitware/trame-server/commit/ba05514a688b5ac0449d68fb0d056ccbc40a9033))
