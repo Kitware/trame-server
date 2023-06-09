@@ -13,6 +13,7 @@ def print_informations(server):
         host_ip = socket.gethostbyname(host_name)
         print(f" - Network: http://{host_ip}:{server.port}/")
     except socket.gaierror:
+        print(f" - Network: http://{args.host}:{server.port}/")
         pass
 
     print()
