@@ -433,7 +433,7 @@ class Server:
         open_browser: bool = True,
         show_connection_info: bool = True,
         disable_logging: bool = False,
-        backend: str = "aiohttp",
+        backend: str = None,
         exec_mode: str = "main",
         timeout: int = None,
         host: str = None,
@@ -458,6 +458,9 @@ class Server:
                              similar to setting it to False.
         :param show_connection_info: Should we print connection URL at startup?
         :param disable_logging: Ask wslink to disable logging
+        :param backend: aiohttp by default but could be generic or tornado.
+                        This can also be set with the environment variable ``TRAME_BACKEND``.
+                        Defaults to ``'aiohttp'``.
         :param exec_mode: main/desktop/task/coroutine
                           specify how the start function should work
         :param timeout: How much second should we wait before automatically
@@ -484,6 +487,9 @@ class Server:
 
         CoreServer.bind_server(self)
         options = self.cli.parse_known_args()[0]
+
+        if backend is None:
+            backend = os.environ.get("TRAME_BACKEND", "aiohttp")
 
         if options.host == "localhost":
             if host is None:
