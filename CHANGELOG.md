@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.11.4 (2023-06-09)
+
+### Fix
+
+* **backend:** Allow backend selection from TRAME_BACKEND env ([`a160297`](https://github.com/Kitware/trame-server/commit/a16029745404ab0ceab46e50673ba9d10b4610c8))
+
 ## v2.11.3 (2023-06-09)
 
 ### Fix
