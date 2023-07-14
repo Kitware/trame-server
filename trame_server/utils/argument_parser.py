@@ -42,11 +42,12 @@ class ArgumentParser(argparse.ArgumentParser):
             return args
 
         args = [] if self._skip_default_parsing else sys.argv[1:]
+
         if any(x.startswith("--trame-args") for x in sys.argv[1:]):
             # Allow argparse to handle all of the different ways this argument may be specified
             tmp_parser = argparse.ArgumentParser()
             tmp_parser.add_argument("--trame-args")
-            out, _ = tmp_parser.parse_known_args(sys.argv[1:])
+            out, _ = tmp_parser.parse_known_args([v for v in sys.argv[1:] if v != "--"])
             # Add these in
             args += out.trame_args.split()
         elif "TRAME_ARGS" in os.environ:
