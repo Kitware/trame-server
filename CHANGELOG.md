@@ -2,6 +2,12 @@
 
 <!--next-version-placeholder-->
 
+## v2.11.5 (2023-07-14)
+
+### Fix
+
+* **argparse:** Skip -- when processing trame-args ([`c4333fb`](https://github.com/Kitware/trame-server/commit/c4333fb73f577e954e118f6d32c4888ddfbc82f2))
+
 ## v2.11.4 (2023-06-09)
 
 ### Fix
