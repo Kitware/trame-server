@@ -12,6 +12,8 @@ from .ui import VirtualNodeManager
 from .protocol import CoreServer
 from .utils.argument_parser import ArgumentParser
 
+DEFAULT_CLIENT_TYPE = "vue2"
+
 
 class Server:
     """
@@ -271,7 +273,7 @@ class Server:
     def client_type(self):
         """Specify the client type. Either 'vue2' or 'vue3' for now."""
         if self._client_type is None:
-            return "vue2"  # default
+            return DEFAULT_CLIENT_TYPE  # default
         return self._client_type
 
     @client_type.setter
