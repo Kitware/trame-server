@@ -15,6 +15,11 @@ from .utils.argument_parser import ArgumentParser
 DEFAULT_CLIENT_TYPE = "vue2"
 
 
+def set_default_client_type(value):
+    global DEFAULT_CLIENT_TYPE
+    DEFAULT_CLIENT_TYPE = value
+
+
 class Server:
     """
     Server implementation for trame.
