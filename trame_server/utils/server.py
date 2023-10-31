@@ -1,3 +1,4 @@
+import sys
 import socket
 
 
@@ -21,3 +22,4 @@ def print_informations(server):
         "Note that for multi-users you need to use and configure a launcher.",
         flush=True,
     )
+    sys.stdout.flush()
