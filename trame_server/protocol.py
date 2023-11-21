@@ -90,7 +90,7 @@ class CoreServer(ServerProtocol):
         self.server._running_port = port_used
         if self.server._running_stage < 2:
             self.server._running_stage = 2
-            self.server.state.server_ready()
+            self.server.state.ready()
             if self.server.controller.on_server_ready.exists():
                 self.server.controller.on_server_ready(**self.server.state.to_dict())
 

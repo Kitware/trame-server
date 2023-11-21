@@ -1,6 +1,10 @@
 import inspect
-from .utils import is_dunder, is_private, asynchronous
+import logging
+from .utils import is_dunder, is_private, asynchronous, share
 from .utils.hot_reload import reload
+from .utils.namespace import Translator
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "State",
@@ -36,28 +40,60 @@ class State:
     Variables can be accessed with either the `[]` or `.` notation.
     """
 
-    def __init__(self, server):
-        self._server = server
-        self._pending_update = {}
-        self._pushed_state = {}
+    def __init__(
+        self,
+        translator=None,
+        internal=None,
+        commit_fn=None,
+        hot_reload=False,
+        ready=False,
+    ):
+        self._push_state_fn = commit_fn
+        self._hot_reload = hot_reload
+        self._translator = translator if translator else Translator()
+        self._change_callbacks = share(internal, "_change_callbacks", {})
+        self._pending_update = share(internal, "_pending_update", {})
+        self._pushed_state = share(internal, "_pushed_state", {})
         #
-        self._state_listeners = StateChangeHandler(server._change_callbacks)
-        self._push_state_fn = server._push_state
+        self._state_listeners = share(
+            internal, "_state_listeners", StateChangeHandler(self._change_callbacks)
+        )
         #
-        self._pending_initialization = True
+        self._parent_state = internal
+        self._children_state = []
+        self._ready_flag = ready
+        if internal:
+            internal._children_state.append(self)
 
-    @property
-    def _hot_reload(self):
-        return self._server.hot_reload
+    def ready(self):
+        if self._ready_flag:
+            return
 
-    def server_ready(self):
-        self._pending_initialization = False
+        self._ready_flag = True
         self.flush()
 
+        if self._parent_state:
+            self._parent_state.ready()
+
+        for child in self._children_state:
+            child.ready()
+
+    @property
+    def is_ready(self):
+        if self._parent_state:
+            return self._parent_state.is_ready
+        return self._ready_flag
+
+    @property
+    def translator(self):
+        return self._translator
+
     def __getitem__(self, key):
+        key = self._translator.translate_key(key)
         return self._pending_update.get(key, self._pushed_state.get(key))
 
     def __setitem__(self, key, value):
+        key = self._translator.translate_key(key)
         if key in self._pushed_state:
             if value == self._pushed_state[key]:
                 self._pending_update.pop(key, None)
@@ -92,6 +128,7 @@ class State:
         :param *_args: A list a variable name
         :type *_args: str
         """
+        _args = self._translator.translate_list(_args)
         change_detected = 0
         full_list = [
             *self._pending_update.get("trame__client_only", []),
@@ -116,10 +153,14 @@ class State:
 
     def has(self, key):
         """Check is a key is currently available in the state"""
-        return key in self._pushed_state
+        _key = self._translator.translate_key(key)
+        result = _key in self._pushed_state or _key in self._pending_update
+        logger.info("has(%s => %s) = %s", key, _key, result)
+        return result
 
     def setdefault(self, key, value):
         """Set an initial value if the key is not present yet"""
+        key = self._translator.translate_key(key)
         if key in self._pushed_state:
             return self._pushed_state[key]
         return self._pending_update.setdefault(key, value)
@@ -129,6 +170,7 @@ class State:
         Check if any provided key name(s) still has a pending
         changed that will need to be flushed.
         """
+        _args = self._translator.translate_list(_args)
         for name in _args:
             if name in self._pending_update:
                 return True
@@ -141,6 +183,7 @@ class State:
         changed that will need to be flushed.
         """
         count = 0
+        _args = self._translator.translate_list(_args)
         for name in _args:
             if name in self._pending_update:
                 count += 1
@@ -152,6 +195,7 @@ class State:
         Mark existing variable name(s) to be modified in a way that
         they will be pushed again at flush time.
         """
+        _args = self._translator.translate_list(_args)
         for key in _args:
             self._pending_update.setdefault(key, self._pushed_state.get(key))
 
@@ -161,12 +205,14 @@ class State:
         This will prevent change listener(s) to react or the client
         to be aware of any change.
         """
+        _args = self._translator.translate_list(_args)
         for key in _args:
             if key in self._pending_update:
                 self._pushed_state[key] = self._pending_update.pop(key)
 
     def update(self, _dict):
         """Update the current state dict with the provided one"""
+        _dict = self._translator.translate_dict(_dict)
         self._pending_update.update(_dict)
         for key in _dict:
             if _dict[key] == self._pushed_state.get(key, TRAME_NON_INIT_VALUE):
@@ -174,7 +220,7 @@ class State:
 
     def flush(self):
         """Force pushing modified state and execute any @state.change listener"""
-        if self._pending_initialization:
+        if not self.is_ready:
             return
 
         keys = set()
@@ -185,9 +231,10 @@ class State:
                 keys |= _keys
 
                 # Do the flush
-                self._push_state_fn(self._pending_update)
+                if self._push_state_fn:
+                    self._push_state_fn(self._pending_update)
                 self._pushed_state.update(self._pending_update)
-                self._pending_update = {}
+                self._pending_update.clear()
 
                 # Execute state listeners
                 self._state_listeners.add_all(_keys)
@@ -208,15 +255,10 @@ class State:
         return keys
 
     @property
-    def change(self):
-        """Function decorator for registering state change executions"""
-        return self._server.change
-
-    @property
     def initial(self):
         """Return the initial state without triggering a flush"""
         self._pushed_state.update(self._pending_update)
-        self._pending_update = {}
+        self._pending_update.clear()
         return self._pushed_state
 
     def __enter__(self):
@@ -224,3 +266,28 @@ class State:
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         self.flush()
+
+    # -------------------------------------------------------------------------
+    # Annotations
+    # -------------------------------------------------------------------------
+
+    def change(self, *_args, **_kwargs):
+        """
+        Use as decorator `@server.change(key1, key2, ...)` so the decorated function
+        will be called like so `_fn(**state)` when any of the listed key name
+        is getting modified from either client or server.
+
+        :param *_args: A list of variable name to monitor
+        :type *_args: str
+        """
+
+        def register_change_callback(func):
+            for name in _args:
+                name = self._translator.translate_key(name)
+                if name not in self._change_callbacks:
+                    self._change_callbacks[name] = []
+
+                self._change_callbacks[name].append(func)
+            return func
+
+        return register_change_callback

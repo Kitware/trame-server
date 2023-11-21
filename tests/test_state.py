@@ -1,26 +1,18 @@
 from trame_server.state import State
+from trame_server.core import Translator
 
 
 class FakeServer:
     def __init__(self):
         self._change_callbacks = {}
         self._events = []
+        self.translator = Translator()
 
     def _push_state(self, delta_state):
-        self._events.append({"type": "push", "content": delta_state})
+        self._events.append({"type": "push", "content": {**delta_state}})
 
     def add_event(self, content, type="msg"):
         self._events.append({"type": type, "content": content})
-
-    def change(self, *_args, **_kwargs):
-        def register_change_callback(func):
-            for name in _args:
-                if name not in self._change_callbacks:
-                    self._change_callbacks[name] = []
-                self._change_callbacks[name].append(func)
-            return func
-
-        return register_change_callback
 
     def __repr__(self) -> str:
         lines = [""]
@@ -64,12 +56,11 @@ def test_minimum_change_detection():
     """
     server = FakeServer()
     server.add_event("test_minimum_change_detection")
+    state = State(commit_fn=server._push_state)
 
-    @server.change("a")
+    @state.change("a")
     def on_change_exec(a, **kwargs):
         server.add_event(type="exec", content=a)
-
-    state = State(server)
 
     state.a = 1
     state.a = 1
@@ -77,7 +68,7 @@ def test_minimum_change_detection():
     state.a = 2
 
     server.add_event("Before server ready")
-    state.server_ready()
+    state.ready()
     server.add_event("After server ready")
 
     state.a = 2

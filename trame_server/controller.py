@@ -1,5 +1,18 @@
-from .utils import is_dunder, asynchronous
+import logging
+from .utils import is_dunder, asynchronous, share
 from .utils.hot_reload import reload
+from .utils.namespace import Translator
+
+logger = logging.getLogger(__name__)
+
+
+class TriggerCounter:
+    def __init__(self, init=0):
+        self._count = init
+
+    def next(self):
+        self._count += 1
+        return self._count
 
 
 class Controller:
@@ -30,21 +43,50 @@ class Controller:
     >>> ctrl.on_data_change.clear(set_only=True) # add, remove, discard, clear
     """
 
-    def __init__(self, server):
-        super().__setattr__("_server", server)
-        super().__setattr__("_func_dict", {})
+    def __init__(self, translator=None, internal=None, hot_reload=False):
+        super().__setattr__("__trame_hot_reload__", hot_reload)
+        super().__setattr__("_translator", translator if translator else Translator())
+        super().__setattr__("_triggers", share(internal, "_triggers", {}))
+        super().__setattr__(
+            "_triggers_fn2name", share(internal, "_triggers_fn2name", {})
+        )
+        super().__setattr__(
+            "_triggers_name_id", share(internal, "_triggers_name_id", TriggerCounter())
+        )
+        super().__setattr__("_func_dict", share(internal, "_func_dict", {}))
 
-    @property
-    def trigger(self):
-        return self._server.trigger
+    def trigger(self, name):
+        """
+        Use as decorator `@server.trigger(name)` so the decorated function
+        will be able to be called from the client by doing `click="trigger(name)"`.
 
-    @property
-    def trigger_name(self):
-        return self._server.trigger_name
+        :param name: A name to use for that trigger
+        :type name: str
+        """
+        name = self._translator.translate_key(name)
 
-    @property
-    def __trame_hot_reload__(self):
-        return self._server.hot_reload
+        def register_trigger(func):
+            logger.info("trigger(%s)", name)
+            self._triggers[name] = func
+            self._triggers_fn2name[func] = name
+            return func
+
+        return register_trigger
+
+    def trigger_name(self, fn):
+        """
+        Given a function this method will register a trigger and returned its name.
+        If manually registered, the given name at the time will be returned.
+
+        :return: The trigger name for that function
+        :rtype: str
+        """
+        if fn in self._triggers_fn2name:
+            return self._triggers_fn2name[fn]
+
+        name = f"trigger__{self._triggers_name_id.next()}"
+        self.trigger(name)(fn)
+        return name
 
     def __getitem__(self, name):
         return self.__getattr__(name)
@@ -56,6 +98,7 @@ class Controller:
         if is_dunder(name):
             return super().__getattr__(name)
 
+        name = self._translator.translate_key(name)
         if name not in self._func_dict:
             self._func_dict[name] = ControllerFunction(self, name)
 
@@ -71,6 +114,7 @@ class Controller:
             )
             raise Exception(msg)
 
+        name = self._translator.translate_key(name)
         if name in self._func_dict:
             self._func_dict[name].func = func
         else:
@@ -111,6 +155,7 @@ class Controller:
             ctrl.on_server_ready.add(on_ready)
 
         """
+        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             if clear:
@@ -141,6 +186,7 @@ class Controller:
             ctrl.on_server_ready.once(on_ready)
 
         """
+        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             self[name].once(func)
@@ -183,6 +229,7 @@ class Controller:
             ctrl.on_server_ready.add_task(on_ready)
 
         """
+        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             if clear:
@@ -228,6 +275,7 @@ class Controller:
             ctrl.on_server_ready = on_ready
 
         """
+        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             if clear:
