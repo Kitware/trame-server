@@ -4,6 +4,13 @@ import sys
 from . import logger
 
 
+def share(obj, attr_name, default_value):
+    if obj and hasattr(obj, attr_name):
+        return getattr(obj, attr_name)
+
+    return default_value
+
+
 def _isascii_36(s):
     # For Python < 3.7, we have to use our own isascii() function.
     # This works for both bytes and strings.

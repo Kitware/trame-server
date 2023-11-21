@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 
+
 from . import utils
 
 from .state import State
@@ -11,6 +12,10 @@ from .controller import Controller
 from .ui import VirtualNodeManager
 from .protocol import CoreServer
 from .utils.argument_parser import ArgumentParser
+from .utils.namespace import Translator
+from .utils import share
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_CLIENT_TYPE = "vue2"
 
@@ -40,73 +45,86 @@ class Server:
     :type options: Dict
     """
 
-    def __init__(self, name="trame", vn_constructor=None, **options):
+    def __init__(
+        self,
+        name="trame",
+        vn_constructor=None,
+        translator=None,
+        parent_server=None,
+        **options,
+    ):
         # Core internal variables
+        self._parent_server = parent_server
+        self._translator = translator if translator else Translator()
+        self._name = share(parent_server, "_name", name)
+        self._options = share(parent_server, "_options", options)
+        self._client_type = share(parent_server, "_client_type", None)
+
+        # use parent_server instead of local version
         self._server = None
-        self._running_port = 0
         self._running_stage = 0  # 0: off / 1: pending / 2: running
+        self._running_port = 0
         self._running_future = None
-        self._name = name
         self._www = None
-        self._options = options
-        self._client_type = None
-
-        # Controller
-        self._controller = Controller(self)
-
-        # UI
-        self._ui = VirtualNodeManager(self, vn_constructor)
-
-        # HTTP server
-        self.serve = {}
-
-        # @change
-        self._change_callbacks = {}
-
-        # @trigger
-        self._triggers = {}
-        self._triggers_fn2name = {}
-        self._triggers_name_id = 0
-
-        # CLI argument handling
-        self._cli_parser = None
-
-        # modules
+        self.serve = {}  # HTTP static endpoints
         self._loaded_modules = set()
-
-        # protocols to register
+        self._cli_parser = None
         self._root_protocol = None
         self._protocols_to_configure = []
 
-        # Shared state + reserve internal keys
-        self._state = State(self)
-        for key in ["scripts", "module_scripts", "styles", "vue_use", "mousetrap"]:
-            self._state[f"trame__{key}"] = []
-        self._state.trame__client_only = ["trame__busy"]
-        self._state.trame__busy = 1
-        self._state.trame__favicon = None
-        self._state.trame__title = "Trame"
-
         # ENV variable mapping settings
-        self._options["log_network"] = self._options.get(
-            "log_network", os.environ.get("TRAME_LOG_NETWORK", False)
-        )
-        self._options["ws_max_msg_size"] = self._options.get(
-            "ws_max_msg_size", os.environ.get("TRAME_WS_MAX_MSG_SIZE", 10000000)
-        )
-        self._options["ws_heart_beat"] = self._options.get(
-            "ws_heart_beat", os.environ.get("TRAME_WS_HEART_BEAT", 30)
-        )
-        self._options["desktop_debug"] = self._options.get(
-            "desktop_debug", os.environ.get("TRAME_DESKTOP_DEBUG", False)
-        )
-        # reset default wslink startup message
-        os.environ["WSLINK_READY_MSG"] = ""
-
-        # Initialize hot reload
         self.hot_reload = "--hot-reload" in sys.argv or bool(
             os.getenv("TRAME_HOT_RELOAD", False)
         )
+        if parent_server is None:
+            self._options["log_network"] = self._options.get(
+                "log_network", os.environ.get("TRAME_LOG_NETWORK", False)
+            )
+            self._options["ws_max_msg_size"] = self._options.get(
+                "ws_max_msg_size", os.environ.get("TRAME_WS_MAX_MSG_SIZE", 10000000)
+            )
+            self._options["ws_heart_beat"] = self._options.get(
+                "ws_heart_beat", os.environ.get("TRAME_WS_HEART_BEAT", 30)
+            )
+            self._options["desktop_debug"] = self._options.get(
+                "desktop_debug", os.environ.get("TRAME_DESKTOP_DEBUG", False)
+            )
+            # reset default wslink startup message
+            os.environ["WSLINK_READY_MSG"] = ""
+
+        # Shared state + reserve internal keys
+        if parent_server is None:
+            self._state = State(
+                self.translator, commit_fn=self._push_state, hot_reload=self.hot_reload
+            )
+            for key in ["scripts", "module_scripts", "styles", "vue_use", "mousetrap"]:
+                self._state[f"trame__{key}"] = []
+            self._state.trame__client_only = ["trame__busy"]
+            self._state.trame__busy = 1
+            self._state.trame__favicon = None
+            self._state.trame__title = "Trame"
+        else:
+            self._state = State(
+                self.translator,
+                internal=parent_server._state,
+                commit_fn=self._push_state,
+                hot_reload=self.hot_reload,
+            )
+
+        # Controller
+        if parent_server is None:
+            self._controller = Controller(self.translator)
+        else:
+            self._controller = Controller(
+                self.translator, internal=parent_server._controller
+            )
+
+        # UI (FIXME): use for translator
+        self._ui = share(parent_server, "_ui", VirtualNodeManager(self, vn_constructor))
+
+    def create_child_server(self, translator=None, prefix=None):
+        translator = translator if translator else Translator(prefix=prefix)
+        return Server(translator=translator, parent_server=self)
 
     # -------------------------------------------------------------------------
     # State management helpers
@@ -141,6 +159,10 @@ class Server:
         :param module: A module to enable or a dict()
         :param kwargs: Any optional parameters needed for your module setup() function.
         """
+        if self.root_server != self:
+            self.root_server.enable_module(module, **kwargs)
+            return
+
         # Make sure definitions is a dict while skipping already loaded module
         definitions = module
         if isinstance(definitions, dict):
@@ -202,7 +224,8 @@ class Server:
     # Annotations
     # -------------------------------------------------------------------------
 
-    def change(self, *_args, **_kwargs):
+    @property
+    def change(self):
         """
         Use as decorator `@server.change(key1, key2, ...)` so the decorated function
         will be called like so `_fn(**state)` when any of the listed key name
@@ -211,20 +234,12 @@ class Server:
         :param *_args: A list of variable name to monitor
         :type *_args: str
         """
-
-        def register_change_callback(func):
-            for name in _args:
-                if name not in self._change_callbacks:
-                    self._change_callbacks[name] = []
-
-                self._change_callbacks[name].append(func)
-            return func
-
-        return register_change_callback
+        return self._state.change
 
     # -------------------------------------------------------------------------
 
-    def trigger(self, name):
+    @property
+    def trigger(self):
         """
         Use as decorator `@server.trigger(name)` so the decorated function
         will be able to be called from the client by doing `click="trigger(name)"`.
@@ -232,19 +247,14 @@ class Server:
         :param name: A name to use for that trigger
         :type name: str
         """
-
-        def register_trigger(func):
-            self._triggers[name] = func
-            self._triggers_fn2name[func] = name
-            return func
-
-        return register_trigger
+        return self._controller.trigger
 
     # -------------------------------------------------------------------------
     # From a function get its trigger name and register it if need be
     # -------------------------------------------------------------------------
 
-    def trigger_name(self, fn):
+    @property
+    def trigger_name(self):
         """
         Given a function this method will register a trigger and returned its name.
         If manually registered, the given name at the time will be returned.
@@ -252,13 +262,7 @@ class Server:
         :return: The trigger name for that function
         :rtype: str
         """
-        if fn in self._triggers_fn2name:
-            return self._triggers_fn2name[fn]
-
-        self._triggers_name_id += 1
-        name = f"trigger__{self._triggers_name_id}"
-        self.trigger(name)(fn)
-        return name
+        return self._controller.trigger_name
 
     # -------------------------------------------------------------------------
     # App properties
@@ -268,6 +272,18 @@ class Server:
     def name(self):
         """Name of server"""
         return self._name
+
+    @property
+    def root_server(self):
+        """Root server to start"""
+        if self._parent_server:
+            return self._parent_server.root_server
+        return self
+
+    @property
+    def translator(self):
+        """Translator of the server"""
+        return self._translator
 
     @property
     def options(self):
@@ -298,6 +314,9 @@ class Server:
     @property
     def cli(self):
         """argparse parser"""
+        if self.root_server != self:
+            return self.root_server.cli
+
         if self._cli_parser:
             return self._cli_parser
 
@@ -372,11 +391,17 @@ class Server:
     @property
     def running(self):
         """Return True if the server is currently starting or running."""
+        if self.root_server != self:
+            return self.root_server.running
+
         return self._running_stage > 1
 
     @property
     def ready(self):
         """Return a future that will resolve once the server is ready"""
+        if self.root_server != self:
+            return self.root_server.ready
+
         if self._running_future is None:
             self._running_future = asyncio.get_running_loop().create_future()
 
@@ -404,11 +429,18 @@ class Server:
         :param configure_protocol_fn: A function to be called later with a
                                       wslink.ServerProtocol as argument.
         """
+        if self.root_server != self:
+            self.root_server.add_protocol_to_configure(configure_protocol_fn)
+            return
+
         self._protocols_to_configure.append(configure_protocol_fn)
 
     @property
     def protocol(self):
         """Return the server root protocol"""
+        if self.root_server != self:
+            return self.root_server.protocol
+
         return self._root_protocol
 
     # -------------------------------------------------------------------------
@@ -479,6 +511,21 @@ class Server:
         :param **kwargs: Keyword arguments for capturing optional parameters
                          for wslink server and/or desktop browser
         """
+        if self.root_server != self:
+            self.root_server.start(
+                port=port,
+                thread=thread,
+                open_browser=open_browser,
+                show_connection_info=show_connection_info,
+                disable_logging=disable_logging,
+                backend=backend,
+                exec_mode=exec_mode,
+                timeout=timeout,
+                host=host,
+                **kwargs,
+            )
+            return
+
         if self._running_stage:
             return
 
@@ -609,11 +656,16 @@ class Server:
 
     async def stop(self):
         """Coroutine for stopping the server"""
-        if self._running_stage:
+        if self.root_server != self:
+            await self.root_server.stop()
+        elif self._running_stage:
             await self._server.stop()
             self._running_future = None
 
     @property
     def port(self):
         """Once started, you can retrieve the port used"""
+        if self.root_server != self:
+            return self.root_server.port
+
         return self._running_port

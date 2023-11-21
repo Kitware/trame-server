@@ -209,7 +209,7 @@ class Client:
     Client implementation for driving a remote trame server with its shared state and trigger method calls in plain python.
     """
 
-    def __init__(self, url=None, config=None, hot_reload=False):
+    def __init__(self, url=None, config=None, translator=None, hot_reload=False):
         # Network
         self._connected = 0
         self._session = None
@@ -221,7 +221,9 @@ class Client:
         self._change_callbacks = {}
 
         # trame state
-        self._state = State(self)
+        self._state = State(
+            translator, commit_fn=self._push_state, hot_reload=hot_reload
+        )
 
     async def connect(self, url=None, **kwargs):
         if self._connected:
@@ -235,7 +237,7 @@ class Client:
         async with aiohttp.ClientSession() as session:
             async with session.ws_connect(url) as ws:
                 self._session = WsLinkSession(ws)
-                self._state.server_ready()
+                self._state.ready()
                 self._session.register_subscription(
                     "trame.state.topic", self._on_state_update
                 )
@@ -256,7 +258,8 @@ class Client:
     # Fake server for state
     # -----------------------------------------------------
 
-    def change(self, *_args, **_kwargs):
+    @property
+    def change(self):
         """
         Use as decorator `@server.change(key1, key2, ...)` so the decorated function
         will be called like so `_fn(**state)` when any of the listed key name
@@ -265,16 +268,7 @@ class Client:
         :param *_args: A list of variable name to monitor
         :type *_args: str
         """
-
-        def register_change_callback(func):
-            for name in _args:
-                if name not in self._change_callbacks:
-                    self._change_callbacks[name] = []
-
-                self._change_callbacks[name].append(func)
-            return func
-
-        return register_change_callback
+        return self._state.change
 
     def _push_state(self, state):
         if self._session:
