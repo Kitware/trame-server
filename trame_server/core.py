@@ -3,6 +3,7 @@ import inspect
 import logging
 import os
 import sys
+from typing import Optional
 
 from . import utils
 
@@ -437,7 +438,7 @@ class Server:
         self,
         port: int = None,
         thread: bool = False,
-        open_browser: bool = True,
+        open_browser: Optional[bool] = None,
         show_connection_info: bool = True,
         disable_logging: bool = False,
         backend: str = None,
@@ -487,6 +488,9 @@ class Server:
             from trame_client import module
 
             self.enable_module(module)
+
+        if open_browser is None:
+            open_browser = not os.environ.get("TRAME_SERVER", False)
 
         # Trigger on_server_start life cycle callback
         if self.controller.on_server_start.exists():
@@ -563,6 +567,7 @@ class Server:
             options.content = ""
             options.fsEndpoints = ""
 
+        self._server_options = options
         CoreServer.configure(options)
 
         self._running_stage = 1
@@ -617,3 +622,8 @@ class Server:
     def port(self):
         """Once started, you can retrieve the port used"""
         return self._running_port
+
+    @property
+    def server_options(self):
+        """Once started, you can retrieve the server options used"""
+        return self._server_options
