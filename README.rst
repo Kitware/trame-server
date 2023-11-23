@@ -37,6 +37,7 @@ The `API Reference <https://trame.readthedocs.io/en/latest/index.html>`_ documen
 * **TRAME_WS_MAX_MSG_SIZE** : Maximum size in bytes of any ws message. (default: 10MB)
 * **TRAME_WS_HEART_BEAT**   : Time in second before assuming the server is non-responsive. (default: 30s)
 * **TRAME_DESKTOP_DEBUG**   : If defined it will allow user to inspect the web content in desktop mode
+* **TRAME_SERVER**          : If set to true, this will prevent browser from opening by default
 
 
 **Life cycle callbacks**
