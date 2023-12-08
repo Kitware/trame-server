@@ -88,6 +88,15 @@ class Controller:
         self.trigger(name)(fn)
         return name
 
+    def trigger_fn(self, name):
+        """
+        Given a trigger name get its attached function/method.
+
+        :return: The trigger function for that name
+        :rtype: function
+        """
+        return self._triggers.get(name)
+
     def __getitem__(self, name):
         return self.__getattr__(name)
 

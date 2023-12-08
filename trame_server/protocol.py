@@ -182,8 +182,9 @@ class CoreServer(ServerProtocol):
     async def trigger(self, name, args, kwargs):
         logger.action_c2s({"name": name, "args": args, "kwargs": kwargs})
         with self.server.state:
-            if name in self.server._triggers:
-                result = self.server._triggers[name](*args, **kwargs)
+            fn = self.server.controller.trigger_fn(name)
+            if fn:
+                result = fn(*args, **kwargs)
                 if inspect.isawaitable(result):
                     result = await result
                 return result
