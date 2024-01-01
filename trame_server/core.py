@@ -18,7 +18,7 @@ from .utils import share
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CLIENT_TYPE = "vue2"
+DEFAULT_CLIENT_TYPE = "vue3"
 
 
 def set_default_client_type(value):
