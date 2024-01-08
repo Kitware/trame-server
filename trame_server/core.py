@@ -120,6 +120,16 @@ class Server:
                 self.translator, internal=parent_server._controller
             )
 
+        # Server only context
+        if parent_server is None:
+            self._context = State(self.translator, hot_reload=self.hot_reload)
+        else:
+            self._context = State(
+                self.translator,
+                internal=parent_server._context,
+                hot_reload=self.hot_reload,
+            )
+
         # UI (FIXME): use for translator
         self._ui = share(parent_server, "_ui", VirtualNodeManager(self, vn_constructor))
 
@@ -372,6 +382,16 @@ class Server:
         :rtype: trame_server.state.State
         """
         return self._state
+
+    @property
+    def context(self):
+        """
+        The server-only context (not shared with the client).
+
+        :return: The server context state
+        :rtype: trame_server.state.State
+        """
+        return self._context
 
     @property
     def controller(self):
