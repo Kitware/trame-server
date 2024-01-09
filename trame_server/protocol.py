@@ -91,6 +91,7 @@ class CoreServer(ServerProtocol):
         if self.server._running_stage < 2:
             self.server._running_stage = 2
             self.server.state.ready()
+            self.server.context.ready()
             if self.server.controller.on_server_ready.exists():
                 self.server.controller.on_server_ready(**self.server.state.to_dict())
 
