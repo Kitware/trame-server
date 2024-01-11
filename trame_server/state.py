@@ -238,12 +238,17 @@ class State:
 
                 # Execute state listeners
                 self._state_listeners.add_all(_keys)
+
+                pushed_state = self.translator.reverse_translate_dict(
+                    self._pushed_state
+                )
+
                 for callback in self._state_listeners:
                     if self._hot_reload:
                         if not inspect.iscoroutinefunction(callback):
                             callback = reload(callback)
 
-                    coroutine = callback(**self._pushed_state)
+                    coroutine = callback(**pushed_state)
                     if inspect.isawaitable(coroutine):
                         asynchronous.create_task(coroutine)
 
