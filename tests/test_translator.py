@@ -1,6 +1,6 @@
 import logging
 
-from trame_server.core import Controller, State
+from trame_server.core import Controller, State, Translator
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,23 @@ def func2():
 
 def func3():
     return 3
+
+def test_translator():
+    a_translator = Translator()
+    a_translator.add_translation("foo", "a_foo")
+
+    assert a_translator.translate_key("foo") == "a_foo"
+    assert a_translator.translate_key("bar") == "bar"
+    assert a_translator.reverse_translate_key("a_foo") == "foo"
+    assert a_translator.reverse_translate_key("bar") == "bar"
+
+    b_translator = Translator()
+    b_translator.set_prefix("b_")
+
+    assert b_translator.translate_key("foo") == "b_foo"
+    assert b_translator.translate_key("bar") == "b_bar"
+    assert b_translator.reverse_translate_key("b_foo") == "foo"
+    assert b_translator.reverse_translate_key("b_bar") == "bar"
 
 
 def test_state_translation():
@@ -273,3 +290,52 @@ def test_controller_prefix_and_translation():
         func() == root_controller[func_name]()
         for func_name, func in expected_controller.items()
     )
+
+
+def test_change_callback():
+    # Ensure change callbacks are passed translated kwargs when using translations
+    test_passed = False
+
+    root_state = State()
+
+    a_state = State(internal=root_state)
+    a_state.translator.add_translation("foo", "a_foo")
+
+    def on_a_foo_change(*args, **kwargs):
+        nonlocal test_passed
+        assert "foo" in kwargs
+        assert "a_foo" not in kwargs
+        assert kwargs["foo"] == 123
+        test_passed = "foo" in kwargs and "a_foo" not in kwargs
+
+    a_state.change("foo")(on_a_foo_change)
+    a_state.ready()
+    a_state.foo = 123
+    root_state.foo = 456
+    a_state.flush()
+
+    assert test_passed
+
+    # Ensure change callbacks are passed translated kwargs when using prefix
+    test_passed = False
+
+    root_state = State()
+
+    b_state = State(internal=root_state)
+    b_state.translator.set_prefix("b_")
+
+    def on_b_foo_change(*args, **kwargs):
+        nonlocal test_passed
+        assert "foo" in kwargs
+        assert "b_foo" not in kwargs
+        assert kwargs["foo"] == 456
+        test_passed = "foo" in kwargs and "b_foo" not in kwargs
+
+    b_state.change("foo")(on_b_foo_change)
+
+    b_state.ready()
+    b_state.foo = 456
+    root_state.foo = 123
+    b_state.flush()
+
+    assert test_passed
