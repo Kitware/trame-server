@@ -482,6 +482,16 @@ class Server:
                 obj, func = pair
                 return func(obj, *args, **kwargs)
 
+    def force_state_push(self, *key_names):
+        """
+        Should only be needed when client corrupted its data and need the server need to send it again.
+
+        :param *args: Set of key names to be send again to the client.
+        """
+        self.protocol_call(
+            "trame.force.push", *[self._translator.translate_key(k) for k in key_names]
+        )
+
     # -------------------------------------------------------------------------
     # Server handling (start/stop/port)
     # -------------------------------------------------------------------------

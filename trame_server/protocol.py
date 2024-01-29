@@ -155,6 +155,18 @@ class CoreServer(ServerProtocol):
     # RPCs
     # ---------------------------------------------------------------
 
+    @exportRpc("trame.force.push")
+    def force_push_state(self, *keys):
+        state_to_send = {key: self.server.state[key] for key in keys}
+        if state_to_send:
+            self.publish(
+                "trame.state.topic",
+                state_to_send,
+                skip_last_active_client=False,
+            )
+
+    # ---------------------------------------------------------------
+
     @exportRpc("trame.lifecycle.update")
     def life_cycle_update(self, name):
         _fn = self.server.controller[f"on_{name}"]
