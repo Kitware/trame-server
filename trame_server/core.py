@@ -114,10 +114,12 @@ class Server:
 
         # Controller
         if parent_server is None:
-            self._controller = Controller(self.translator)
+            self._controller = Controller(self.translator, hot_reload=self.hot_reload)
         else:
             self._controller = Controller(
-                self.translator, internal=parent_server._controller
+                self.translator,
+                internal=parent_server._controller,
+                hot_reload=self.hot_reload,
             )
 
         # Server only context
