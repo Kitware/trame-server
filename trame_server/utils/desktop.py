@@ -3,6 +3,58 @@ import threading
 from multiprocessing import Process, Queue
 from .asynchronous import handle_task_result
 
+try:
+    import webview
+except ImportError:
+    raise ImportError("server.start(exec_mode='desktop', ...) requires pywebview>=3.4")
+
+WINDOW_ARGS = [
+    "html",
+    "js_api",
+    "width",
+    "height",
+    "x",
+    "y",
+    "screen",
+    "resizable",
+    "fullscreen",
+    "min_size",
+    "hidden",
+    "frameless",
+    "easy_drag",
+    "focus",
+    "minimized",
+    "maximized",
+    "on_top",
+    "confirm_close",
+    "background_color",
+    "transparent",
+    "text_select",
+    "zoomable",
+    "draggable",
+    "vibrancy",
+    "server",
+    "server_args",
+    "localization",
+]
+
+
+def filter_dict(dict_to_filter, key_list):
+    return {k: dict_to_filter[k] for k in key_list if k in dict_to_filter}
+
+
+def to_menu(menu_struct, fn_menu_click):
+    if isinstance(menu_struct, list):
+        return [to_menu(item, fn_menu_click) for item in menu_struct]
+    if isinstance(menu_struct, str):
+        return webview.menu.MenuSeparator()
+    if isinstance(menu_struct, tuple):
+        label, item = menu_struct
+        if isinstance(item, list):
+            return webview.menu.Menu(label, to_menu(item, fn_menu_click))
+        if isinstance(item, str):
+            return webview.menu.MenuAction(label, lambda: fn_menu_click(item))
+
 
 class BrowserProcess(Process):
     def __init__(
@@ -13,6 +65,7 @@ class BrowserProcess(Process):
         action_queue=None,
         debug=False,
         gui=None,
+        menu=[],
         **kwargs,
     ):
         Process.__init__(self)
@@ -20,7 +73,8 @@ class BrowserProcess(Process):
         self._port = port
         self._msg_queue = msg_queue
         self._action_queue = action_queue
-        self._window_args = kwargs
+        self._menu = menu
+        self._window_args = filter_dict(kwargs, WINDOW_ARGS)
         self._main_window = None
         # start args
         self._debug = debug
@@ -31,6 +85,9 @@ class BrowserProcess(Process):
         # It does not appear that we need to destroy the window
         self._monitoring = False
         self._msg_queue.put("closing")
+
+    def menu_click(self, name):
+        self._msg_queue.put(f"menu:{name}")
 
     async def _monitor_action_requests(self):
         while self._monitoring:
@@ -52,12 +109,6 @@ class BrowserProcess(Process):
         loop.run_until_complete(task)
 
     def run(self):
-        try:
-            import webview
-        except ImportError:
-            print("layout.start_desktop_window() requires pywebview>=3.4")
-            return
-
         self._main_window = webview.create_window(
             title=self._title,
             url=f"http://localhost:{self._port}/index.html",
@@ -72,7 +123,13 @@ class BrowserProcess(Process):
 
         event_loop = asyncio.new_event_loop()
         thread = threading.Thread(target=lambda: self.run_in_thread(event_loop))
-        webview.start(func=lambda: thread.start(), debug=self._debug, gui=self._gui)
+
+        webview.start(
+            menu=to_menu(self._menu, self.menu_click),
+            func=lambda: thread.start(),
+            debug=self._debug,
+            gui=self._gui,
+        )
 
 
 def start_browser(server, **kwargs):
