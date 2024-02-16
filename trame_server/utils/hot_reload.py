@@ -50,7 +50,7 @@ except ImportError:
 
 
 # Strip any decorators with these names
-STRIP_DECORATORS = ["ctrl", "state"]
+STRIP_DECORATORS = ["ctrl", "state", "life_cycle"]
 
 
 # We don't actually have logic right now to reload lambdas anyways
@@ -224,10 +224,17 @@ def _handle_exception(func):
 def _get_decorator_name(dec_node):
     if hasattr(dec_node, "id"):
         return dec_node.id
-    elif hasattr(dec_node.func, "id"):
-        return dec_node.func.id
 
-    return dec_node.func.value.id
+    if hasattr(dec_node, "func"):
+        if hasattr(dec_node.func, "id"):
+            return dec_node.func.id
+        elif hasattr(dec_node.func, "value"):
+            return dec_node.func.value.id
+
+    if hasattr(dec_node, "value"):
+        return dec_node.value.id
+
+    raise Exception(f"Failed to find decorator name: {dec_node}")
 
 
 def _strip_hot_reload_decorator(func):
