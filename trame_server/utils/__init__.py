@@ -51,14 +51,18 @@ def clean_state(state):
     str_values = {}
     for key in state:
         value = clean_value(state[key])
-        try:
-            str_value = json.dumps(value)
+        if isinstance(value, bytes):
             cleaned[key] = value
-            str_values[key] = str_value
-        except TypeError:
-            logger.error(
-                f"Skip state value for '{key}' since its content is not serializable"
-            )
+            str_values[key] = value
+        else:
+            try:
+                str_value = json.dumps(value)
+                cleaned[key] = value
+                str_values[key] = str_value
+            except TypeError:
+                logger.error(
+                    f"Skip state value for '{key}' since its content is not serializable"
+                )
 
     return cleaned, str_values
 
