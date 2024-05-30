@@ -442,6 +442,11 @@ class Server:
         }
         return state
 
+    def clear_state_client_cache(self, *state_names):
+        protocol = self.protocol
+        if protocol:
+            protocol.clear_state_client_cache(*state_names)
+
     # -------------------------------------------------------------------------
 
     def add_protocol_to_configure(self, configure_protocol_fn):

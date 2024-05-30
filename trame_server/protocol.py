@@ -152,6 +152,14 @@ class CoreServer(ServerProtocol):
         self.publish("trame.actions.topic", actions)
 
     # ---------------------------------------------------------------
+    # Internal RPCs
+    # ---------------------------------------------------------------
+
+    def clear_state_client_cache(self, *keys):
+        for k in keys:
+            del self._clients_state[k]
+
+    # ---------------------------------------------------------------
     # RPCs
     # ---------------------------------------------------------------
 
