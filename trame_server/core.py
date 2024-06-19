@@ -5,7 +5,7 @@ import inspect
 import logging
 import os
 import sys
-from typing import Literal
+from typing import Literal, TypeAlias
 
 from . import utils
 from .controller import Controller
@@ -18,10 +18,12 @@ from .utils.namespace import Translator
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CLIENT_TYPE: Literal["vue2", "vue3"] = "vue3"
+ClientType: TypeAlias = Literal["vue2", "vue3"]
+
+DEFAULT_CLIENT_TYPE: ClientType = "vue3"
 
 
-def set_default_client_type(value: Literal["vue2", "vue3"]) -> None:
+def set_default_client_type(value: ClientType) -> None:
     global DEFAULT_CLIENT_TYPE
     DEFAULT_CLIENT_TYPE = value
 
@@ -510,7 +512,7 @@ class Server:
         open_browser: bool | None = None,
         show_connection_info: bool = True,
         disable_logging: bool = False,
-        backend: str | None = None,
+        backend: Literal["aiohttp", "generic", "tornado", "jupyter"] | None = None,
         exec_mode: str = "main",
         timeout: int | None = None,
         host: str | None = None,
