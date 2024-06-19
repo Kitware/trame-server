@@ -1,27 +1,27 @@
+from __future__ import annotations
+
 import asyncio
 import inspect
 import logging
 import os
 import sys
-from typing import Optional
-
+from typing import Literal
 
 from . import utils
-
-from .state import State
 from .controller import Controller
-from .ui import VirtualNodeManager
 from .protocol import CoreServer
+from .state import State
+from .ui import VirtualNodeManager
+from .utils import share
 from .utils.argument_parser import ArgumentParser
 from .utils.namespace import Translator
-from .utils import share
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CLIENT_TYPE = "vue3"
+DEFAULT_CLIENT_TYPE: Literal["vue2", "vue3"] = "vue3"
 
 
-def set_default_client_type(value):
+def set_default_client_type(value: Literal["vue2", "vue3"]) -> None:
     global DEFAULT_CLIENT_TYPE
     DEFAULT_CLIENT_TYPE = value
 
@@ -53,7 +53,7 @@ class Server:
         translator=None,
         parent_server=None,
         **options,
-    ):
+    ) -> None:
         # Core internal variables
         self._parent_server = parent_server
         self._translator = translator if translator else Translator()
@@ -135,7 +135,7 @@ class Server:
         # UI (FIXME): use for translator
         self._ui = share(parent_server, "_ui", VirtualNodeManager(self, vn_constructor))
 
-    def create_child_server(self, translator=None, prefix=None):
+    def create_child_server(self, translator=None, prefix=None) -> Server:
         translator = translator if translator else Translator(prefix=prefix)
         return Server(translator=translator, parent_server=self)
 
@@ -209,7 +209,7 @@ class Server:
     # Call methods
     # -------------------------------------------------------------------------
 
-    def js_call(self, ref: str = None, method: str = None, *args):
+    def js_call(self, ref: str | None = None, method: str | None = None, *args):
         """
         Python call method on JS element.
 
@@ -229,8 +229,8 @@ class Server:
                         "ref": ref,
                         "method": method,
                         "args": list(args),
-                    }
-                ]
+                    },
+                ],
             )
 
     # -------------------------------------------------------------------------
@@ -282,12 +282,12 @@ class Server:
     # -------------------------------------------------------------------------
 
     @property
-    def name(self):
+    def name(self) -> str:
         """Name of server"""
         return self._name
 
     @property
-    def root_server(self):
+    def root_server(self) -> Server:
         """Root server to start"""
         if self._parent_server:
             return self._parent_server.root_server
@@ -304,14 +304,14 @@ class Server:
         return self._options
 
     @property
-    def client_type(self):
+    def client_type(self) -> Literal["vue2", "vue3"]:
         """Specify the client type. Either 'vue2' or 'vue3' for now."""
         if self._client_type is None:
             return DEFAULT_CLIENT_TYPE  # default
         return self._client_type
 
     @client_type.setter
-    def client_type(self, value):
+    def client_type(self, value: Literal["vue2", "vue3"]) -> None:
         """Should only be called once before any widget initialization"""
         if self._client_type is None:
             self._client_type = value
@@ -378,7 +378,7 @@ class Server:
         return self._cli_parser
 
     @property
-    def state(self):
+    def state(self) -> State:
         """
         :return: The server shared state
         :rtype: trame_server.state.State
@@ -386,7 +386,7 @@ class Server:
         return self._state
 
     @property
-    def context(self):
+    def context(self) -> State:
         """
         The server-only context (not shared with the client).
 
@@ -396,7 +396,7 @@ class Server:
         return self._context
 
     @property
-    def controller(self):
+    def controller(self) -> Controller:
         """
         :return: The server controller
         :rtype: trame_server.controller.Controller
@@ -404,7 +404,7 @@ class Server:
         return self._controller
 
     @property
-    def ui(self):
+    def ui(self) -> VirtualNodeManager:
         """
         :return: The server VirtualNode manager
         :rtype: trame_server.ui.VirtualNodeManager
@@ -412,7 +412,7 @@ class Server:
         return self._ui
 
     @property
-    def running(self):
+    def running(self) -> bool:
         """Return True if the server is currently starting or running."""
         if self.root_server != self:
             return self.root_server.running
@@ -505,15 +505,15 @@ class Server:
 
     def start(
         self,
-        port: int = None,
+        port: int | None = None,
         thread: bool = False,
-        open_browser: Optional[bool] = None,
+        open_browser: bool | None = None,
         show_connection_info: bool = True,
         disable_logging: bool = False,
-        backend: str = None,
+        backend: str | None = None,
         exec_mode: str = "main",
-        timeout: int = None,
-        host: str = None,
+        timeout: int | None = None,
+        host: str | None = None,
         **kwargs,
     ):
         """
@@ -696,7 +696,7 @@ class Server:
 
         return task
 
-    async def stop(self):
+    async def stop(self) -> None:
         """Coroutine for stopping the server"""
         if self.root_server != self:
             await self.root_server.stop()
@@ -705,7 +705,7 @@ class Server:
             self._running_future = None
 
     @property
-    def port(self):
+    def port(self) -> int:
         """Once started, you can retrieve the port used"""
         if self.root_server != self:
             return self.root_server.port
