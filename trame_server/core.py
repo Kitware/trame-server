@@ -5,7 +5,7 @@ import inspect
 import logging
 import os
 import sys
-from typing import Literal, TypeAlias
+from typing import Literal
 
 from . import utils
 from .controller import Controller
@@ -18,7 +18,9 @@ from .utils.namespace import Translator
 
 logger = logging.getLogger(__name__)
 
-ClientType: TypeAlias = Literal["vue2", "vue3"]
+ClientType = Literal["vue2", "vue3"]
+BackendType = Literal["aiohttp", "generic", "tornado", "jupyter"]
+ExecModeType = Literal["main", "desktop", "task", "coroutine"]
 
 DEFAULT_CLIENT_TYPE: ClientType = "vue3"
 
@@ -306,14 +308,14 @@ class Server:
         return self._options
 
     @property
-    def client_type(self) -> Literal["vue2", "vue3"]:
+    def client_type(self) -> ClientType:
         """Specify the client type. Either 'vue2' or 'vue3' for now."""
         if self._client_type is None:
             return DEFAULT_CLIENT_TYPE  # default
         return self._client_type
 
     @client_type.setter
-    def client_type(self, value: Literal["vue2", "vue3"]) -> None:
+    def client_type(self, value: ClientType) -> None:
         """Should only be called once before any widget initialization"""
         if self._client_type is None:
             self._client_type = value
@@ -512,8 +514,8 @@ class Server:
         open_browser: bool | None = None,
         show_connection_info: bool = True,
         disable_logging: bool = False,
-        backend: Literal["aiohttp", "generic", "tornado", "jupyter"] | None = None,
-        exec_mode: str = "main",
+        backend: BackendType | None = None,
+        exec_mode: ExecModeType = "main",
         timeout: int | None = None,
         host: str | None = None,
         **kwargs,
