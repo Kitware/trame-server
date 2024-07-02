@@ -346,6 +346,11 @@ class Server:
             action="store_true",
         )
         self._cli_parser.add_argument(
+            "--banner",
+            help="Print trame banner",
+            action="store_true",
+        )
+        self._cli_parser.add_argument(
             "--app",
             help="Use OS built-in browser",
             action="store_true",
@@ -606,6 +611,11 @@ class Server:
 
         if thread:
             options.nosignalhandlers = True
+
+        if options.banner:
+            from .utils.banner import print_banner
+
+            self.controller.on_server_ready.add(print_banner)
 
         if options.app:
             exec_mode = "desktop"
