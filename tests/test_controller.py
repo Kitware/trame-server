@@ -1,7 +1,10 @@
-import pytest
 import logging
 
+import pytest
+
+from trame_server import Server
 from trame_server.controller import FunctionNotImplementedError
+from trame_server.utils.namespace import Translator
 
 logger = logging.getLogger(__name__)
 
@@ -31,3 +34,18 @@ def test_trigger_name(controller):
     assert a_name == a_name_next
     assert a_name == "trigger__1"
     assert b_name == "trigger__2"
+
+
+def test_trigger_translator():
+    prefix = "ctrl_test_prefix_"
+    server = Server(translator=Translator(prefix))
+
+    def func():
+        return None
+
+    trigger_name = server.controller.trigger_name(func)
+
+    assert trigger_name == f"{prefix}trigger__1"
+    assert server.controller.trigger_fn(trigger_name) == func
+
+    server.controller.trigger_name(func) == trigger_name

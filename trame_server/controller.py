@@ -69,7 +69,7 @@ class Controller:
             logger.info("trigger(%s)", name)
             self._triggers[name] = func
             self._triggers_fn2name[func] = name
-            return func
+            return func, name
 
         return register_trigger
 
@@ -85,8 +85,8 @@ class Controller:
             return self._triggers_fn2name[fn]
 
         name = f"trigger__{self._triggers_name_id.next()}"
-        self.trigger(name)(fn)
-        return name
+        _, translated_name = self.trigger(name)(fn)
+        return translated_name
 
     def trigger_fn(self, name):
         """
