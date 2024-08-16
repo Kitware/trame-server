@@ -8,6 +8,7 @@ import sys
 from typing import Literal
 
 from . import utils
+from .http import HttpHeader
 from .controller import Controller
 from .protocol import CoreServer
 from .state import State
@@ -64,6 +65,7 @@ class Server:
         self._name = share(parent_server, "_name", name)
         self._options = share(parent_server, "_options", options)
         self._client_type = share(parent_server, "_client_type", None)
+        self._http_header = share(parent_server, "_http_header", HttpHeader())
 
         # use parent_server instead of local version
         self._server = None
@@ -154,6 +156,11 @@ class Server:
     # -------------------------------------------------------------------------
     # Initialization helper
     # -------------------------------------------------------------------------
+
+    @property
+    def http_headers(self):
+        """Return http header helper so they can be applied before the server start."""
+        return self._http_header
 
     def enable_module(self, module, **kwargs):
         """
@@ -582,8 +589,8 @@ class Server:
 
             self.enable_module(module)
 
-        if open_browser is None:
-            open_browser = not os.environ.get("TRAME_SERVER", False)
+        # Apply any header change needed
+        self._http_header.apply()
 
         # Trigger on_server_start life cycle callback
         if self.controller.on_server_start.exists():
@@ -594,6 +601,9 @@ class Server:
 
         if backend is None:
             backend = os.environ.get("TRAME_BACKEND", "aiohttp")
+
+        if open_browser is None:
+            open_browser = not os.environ.get("TRAME_SERVER", False)
 
         if options.host == "localhost":
             if host is None:
