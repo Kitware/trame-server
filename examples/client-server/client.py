@@ -5,7 +5,7 @@ from trame.widgets import vuetify
 from trame_server.client import Client
 
 
-server = get_server()
+server = get_server(client_type="vue2")
 state, ctrl = server.state, server.controller
 server.cli.add_argument("--url")
 

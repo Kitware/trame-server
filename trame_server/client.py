@@ -1,13 +1,16 @@
+import os
 import traceback
 import aiohttp
+import msgpack
+import logging
+from wslink.chunking import generate_chunks, UnChunker
 import asyncio
-import json
 from trame_server.utils import asynchronous
 from .state import State
 
+MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", 4194304))
 
-def is_attach_key(value):
-    return isinstance(value, str) and value.startswith("wslink_bin")
+logger = logging.getLogger(__name__)
 
 
 class WsLinkSession:
@@ -16,123 +19,70 @@ class WsLinkSession:
 
     def __init__(self, ws):
         self.loop = asyncio.get_running_loop()
+        self.attachment_atomic = asyncio.Lock()
         self.ws = ws
         self.msg_count = 0
         self.bin_id = 1
-        self.attachments = {}
         self.subscriptions = {}
         self.client_id = None
+        self.unchunker = UnChunker()
         self.in_flight_rpc = {}
-        self.in_flight_attachment = []
-        self.used_attachment_keys = set()
-        self.found_attachment = False
 
-    def _clean_used_attachments(self):
-        for key in self.used_attachment_keys:
-            self.attachments.pop(key)
+    async def on_msg_complete(self, payload):
+        # Notification-only message from the server - should be binary attachment header
+        if "id" not in payload:
+            return
 
-        self.used_attachment_keys.clear()
+        msg_id = payload.get("id")
+        msg_type, msg_topic, msg_idx = msg_id.split(":")
+        future = self.in_flight_rpc.get(msg_id)
 
-    def _bind_binary(self, msg_result, reset=False):
-        if reset:
-            self.found_attachment = False
+        # Error
+        if "error" in payload:
+            if future:
+                future.set_exception(
+                    payload.get("error", "Server error")
+                )  # May need to wrap in Exception?
+            else:
+                print("Server error:", payload.get("error"))
 
-        if msg_result is None:
-            return None
+            self.in_flight_rpc.pop(msg_id)
+            return
 
-        if len(self.attachments):
-            if isinstance(msg_result, str) and msg_result in self.attachments:
-                self.used_attachment_keys.add(msg_result)
-                self.found_attachment = True
-                return self.attachments.get(msg_result)
-            elif isinstance(msg_result, dict):
-                output = {}
-                for key, value in msg_result.items():
-                    if isinstance(value, (str, dict)):
-                        output[key] = self._bind_binary(value, True)
-                        if self.found_attachment:
-                            output["_filter"] = msg_result.get("_filter", []) + [key]
-                    elif key not in output:
-                        output[key] = value
+        # Normal processing
+        msg_result = payload.get("result")
 
-                return output
+        # RPC
+        if msg_type == "rpc":
+            if future:
+                future.set_result(msg_result)
 
-        return msg_result
+        # Publish
+        if msg_type == "publish" and msg_topic in self.subscriptions:
+            event = msg_result
+            for fn in self.subscriptions[msg_topic]:
+                try:
+                    fn(event)
+                except Exception:
+                    print("Subscription callback error")
+                    traceback.print_exc()
+
+        # System
+        if msg_type == "system":
+            if msg_id == WsLinkSession.AUTH_ID:
+                self.client_id = msg_result.get("clientID")
+                self.unchunker.set_max_message_size(msg_result.get("maxMsgSize"))
+                future.set_result(self.client_id)
+            else:
+                future.set_result(msg_result)
+
+        # Clean pending future
+        if future:
+            self.in_flight_rpc.pop(msg_id)
 
     async def listen(self):
         async for msg in self.ws:
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                try:
-                    payload = json.loads(msg.data)
-                except ValueError:
-                    print("Malformed TEXT message")
-                    continue
-
-                # Notification-only message from the server - should be binary attachment header
-                if "id" not in payload:
-                    if payload.get("method") == "wslink.binary.attachment":
-                        for key in payload.get("args", []):
-                            self.attachments[key] = None
-                            self.in_flight_attachment.append(key)
-                    continue
-
-                msg_id = payload.get("id")
-                msg_type, msg_topic, msg_idx = msg_id.split(":")
-                future = self.in_flight_rpc.get(msg_id)
-
-                # Error
-                if "error" in payload:
-                    self.attachments.clear()
-                    self.in_flight_attachment.clear()
-                    if future:
-                        future.set_exception(
-                            payload.get("error", "Server error")
-                        )  # May need to wrap in Exception?
-                    else:
-                        print("Server error:", payload.get("error"))
-
-                    self.in_flight_rpc.pop(msg_id)
-                    continue
-
-                # Normal processing
-                msg_result = payload.get("result")
-
-                # RPC
-                if msg_type == "rpc":
-                    if future:
-                        future.set_result(self._bind_binary(msg_result))
-                        self._clean_used_attachments()
-
-                # Publish
-                if msg_type == "publish" and msg_topic in self.subscriptions:
-                    event = self._bind_binary(msg_result)
-                    self._clean_used_attachments()
-                    for fn in self.subscriptions[msg_topic]:
-                        try:
-                            fn(event)
-                        except Exception:
-                            print("Subscription callback error")
-                            traceback.print_exc()
-
-                # System
-                if msg_type == "system":
-                    if msg_id == WsLinkSession.AUTH_ID:
-                        self.client_id = msg_result.get("clientID")
-                        future.set_result(self.client_id)
-                    else:
-                        future.set_result(msg_result)
-
-                # Clean pending future
-                if future:
-                    self.in_flight_rpc.pop(msg_id)
-
-            elif msg.type == aiohttp.WSMsgType.BINARY:
-                if len(self.in_flight_attachment):
-                    key = self.in_flight_attachment.pop(0)
-                    self.attachments[key] = msg.data
-                else:
-                    raise ValueError("Attachment missing registration key")
-            elif msg.type == aiohttp.WSMsgType.CLOSE:
+            if msg.type == aiohttp.WSMsgType.CLOSE:
                 print("CLOSE")
             elif msg.type == aiohttp.WSMsgType.CLOSING:
                 print("CLOSING")
@@ -140,12 +90,17 @@ class WsLinkSession:
                 print("CLOSED")
             elif msg.type == aiohttp.WSMsgType.ERROR:
                 print("ERROR")
-                break
+            elif msg.type == aiohttp.WSMsgType.TEXT:
+                logger.critical("wslink is not expecting text message:\n> %s", msg.data)
+            if msg.type == aiohttp.WSMsgType.BINARY:
+                full_message = self.unchunker.process_chunk(msg.data)
+                if full_message is not None:
+                    await self.on_msg_complete(full_message)
 
     async def auth(self, **kwargs):
         key = WsLinkSession.AUTH_ID
         resp = self.loop.create_future()
-        msg = dict(
+        wrapper = dict(
             wslink="1.0",
             id=key,
             method="wslink.hello",
@@ -153,7 +108,18 @@ class WsLinkSession:
             kwargs={},
         )
         self.in_flight_rpc[key] = resp
-        await self.ws.send_str(json.dumps(msg))
+
+        try:
+            packed_wrapper = msgpack.packb(wrapper)
+        except Exception:
+            del wrapper["error"]["data"]
+            packed_wrapper = msgpack.packb(wrapper)
+
+        async with self.attachment_atomic:
+            for chunk in generate_chunks(packed_wrapper, MAX_MSG_SIZE):
+                if self.ws is not None:
+                    await self.ws.send_bytes(chunk)
+
         return resp
 
     async def call(self, method, args=None, kwargs=None):
@@ -166,17 +132,24 @@ class WsLinkSession:
         if kwargs is None:
             kwargs = {}
 
-        await self.ws.send_str(
-            json.dumps(
-                dict(
-                    wslink="1.0",
-                    id=key,
-                    method=method,
-                    args=args,
-                    kwargs=kwargs,
-                )
-            )
+        wrapper = dict(
+            wslink="1.0",
+            id=key,
+            method=method,
+            args=args,
+            kwargs=kwargs,
         )
+
+        try:
+            packed_wrapper = msgpack.packb(wrapper)
+        except Exception:
+            del wrapper["error"]["data"]
+            packed_wrapper = msgpack.packb(wrapper)
+
+        async with self.attachment_atomic:
+            for chunk in generate_chunks(packed_wrapper, MAX_MSG_SIZE):
+                if self.ws is not None:
+                    await self.ws.send_bytes(chunk)
 
         return resp
 
@@ -271,7 +244,7 @@ class Client:
         return self._state.change
 
     def _push_state(self, state):
-        if self._session:
+        if self._session and self._session.client_id is not None:
             delta = []
             for key, value in state.items():
                 if isinstance(value, dict) and "_filter" in value:

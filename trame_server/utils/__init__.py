@@ -1,5 +1,8 @@
+import msgpack
 import json
+import base64
 import sys
+from contextlib import suppress
 
 from . import logger
 
@@ -52,10 +55,13 @@ def clean_state(state):
     for key in state:
         value = clean_value(state[key])
         try:
-            str_value = json.dumps(value)
+            str_value = base64.b64encode(msgpack.packb(value)).decode("utf-8")
+            with suppress(TypeError):
+                str_value = json.dumps(value)
+
             cleaned[key] = value
             str_values[key] = str_value
-        except TypeError:
+        except Exception:
             logger.error(
                 f"Skip state value for '{key}' since its content is not serializable"
             )
