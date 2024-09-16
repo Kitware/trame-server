@@ -68,6 +68,7 @@ class CoreServer(ServerProtocol):
         self.rpcMethods = {}
         self.server = CoreServer.server
         self.server._root_protocol = self
+        self.server.context.network_monitor = self.network_monitor
         self._clients_state = {}
 
         for configure in self.server._protocols_to_configure:
