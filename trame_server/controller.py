@@ -63,7 +63,8 @@ class Controller:
         :param name: A name to use for that trigger
         :type name: str
         """
-        name = self._translator.translate_key(name)
+        if not name.startswith("trigger__"):
+            name = self._translator.translate_key(name)
 
         def register_trigger(func):
             logger.info("trigger(%s)", name)
