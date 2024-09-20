@@ -1,7 +1,5 @@
 import random
 
-import trame_server
-
 from trame.app import get_server
 from trame.decorators import TrameApp, change, trigger
 from trame.ui.vuetify3 import SinglePageLayout
@@ -47,9 +45,7 @@ class MainApp:
 
 @TrameApp()
 class SecondApp:
-    def __init__(
-        self, server: trame_server.Server | None = None, template_name="second"
-    ):
+    def __init__(self, server=None, template_name="second"):
         self.prefix = ""
         if server:
             self.prefix = "second_"
@@ -79,6 +75,9 @@ class SecondApp:
     @change("random_value")
     def random_value_changed(self, **_):
         print(f"Random value changed to: {self.state.random_value}")
+
+    def random_print(self, random_value):
+        print(f"{random_value=}")
 
     def _build_ui(self, template_name):
         # self.state.dialog_show = False
@@ -113,6 +112,14 @@ class SecondApp:
                     click=self.translator.translate_js_expression(
                         self.state, "random_value = Math.random()"
                     ),
+                )
+                v3.VBtn(
+                    "Change random_value (auto translate)",
+                    click="random_value = Math.random()",
+                )
+                v3.VBtn(
+                    "Change random_value (arg auto translate)",
+                    click=(self.random_print, "[random_value]"),
                 )
 
 
