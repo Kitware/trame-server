@@ -65,7 +65,8 @@ class State:
         if internal:
             internal._children_state.append(self)
 
-    def ready(self):
+    def ready(self) -> None:
+        """Mark the state as ready for synchronization."""
         if self._ready_flag:
             return
 
@@ -79,13 +80,15 @@ class State:
             child.ready()
 
     @property
-    def is_ready(self):
+    def is_ready(self) -> bool:
+        """Return True is the instance is ready for synchronization, False otherwise."""
         if self._parent_state:
             return self._parent_state.is_ready
         return self._ready_flag
 
     @property
-    def translator(self):
+    def translator(self) -> Translator:
+        """Return the translator instance used to namespace the variable names."""
         return self._translator
 
     def __getitem__(self, key):
