@@ -437,7 +437,8 @@ class Server:
 
     @property
     def network_completion(self):
-        """Return a future to await if you want to ensure that any pending network call have been issued before locking the server"""
+        """Return a future to await if you want to ensure that any pending network call
+        have been issued before locking the server"""
         return asyncio.ensure_future(self.context.network_monitor.completion())
 
     @property

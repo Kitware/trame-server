@@ -1,2 +1,5 @@
 include trame_server/LICENSE
 include trame_server/utils/banner.txt
+prune tests
+prune examples
+prune docs

@@ -8,9 +8,9 @@ class VirtualNodeManager:
     and can be defined or re-defined later. For example:
 
     >>> with layout:
-    ...    ui.hello_widget(layout)  # widget is currently undefined
+    ...     ui.hello_widget(layout)  # widget is currently undefined
     >>> with ui.hello_widget:
-    ...   html.Div("Hello")
+    ...     html.Div("Hello")
     """
 
     def __init__(self, server, vn_constructor=None):

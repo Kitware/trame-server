@@ -40,7 +40,7 @@ class Controller:
     "Update pipeline!"
     "Wow that is pretty cool!"
     "Update view!"
-    >>> ctrl.on_data_change.clear(set_only=True) # add, remove, discard, clear
+    >>> ctrl.on_data_change.clear(set_only=True)  # add, remove, discard, clear
     """
 
     def __init__(self, translator=None, internal=None, hot_reload=False):

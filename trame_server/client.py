@@ -179,7 +179,8 @@ class WsLinkSession:
 
 class Client:
     """
-    Client implementation for driving a remote trame server with its shared state and trigger method calls in plain python.
+    Client implementation for driving a remote trame server with its shared state and
+    trigger method calls in plain python.
     """
 
     def __init__(self, url=None, config=None, translator=None, hot_reload=False):
