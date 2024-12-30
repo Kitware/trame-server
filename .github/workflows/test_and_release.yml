@@ -75,7 +75,7 @@ jobs:
     if: github.event_name == 'push'
     environment:
       name: pypi
-      url: https://pypi.org/p/trame
+      url: https://pypi.org/p/trame-server
     permissions:
       id-token: write # IMPORTANT: mandatory for trusted publishing
       contents: write # IMPORTANT: mandatory for making GitHub Releases
