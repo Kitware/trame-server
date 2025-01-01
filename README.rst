@@ -1,4 +1,6 @@
-trame-server: server implementation of trame
+.. |pypi_download| image:: https://img.shields.io/pypi/dm/trame-server
+
+trame-server: server implementation of trame |pypi_download|
 ===========================================================================
 
 .. image:: https://github.com/Kitware/trame-server/actions/workflows/test_and_release.yml/badge.svg
