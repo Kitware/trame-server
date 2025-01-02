@@ -128,10 +128,14 @@ def test_minimum_change_detection():
         server.add_event(f"About to exit a={state.a}")
 
     # Validate event
-    result = str(server)
-    expected = str(test_minimum_change_detection.__doc__)
+    result = [line.strip() for line in str(server).split("\n")]
+    expected = [
+        line.strip() for line in str(test_minimum_change_detection.__doc__).split("\n")
+    ]
 
     # Grab new scenario output
+    # print(expected)
+    # print("-"*60)
     # print(result)
 
-    assert expected.strip() == result.strip()
+    assert expected == result
