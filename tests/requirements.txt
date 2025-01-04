@@ -1,3 +1,4 @@
 pytest
 trame
 trame-client
+pytest-asyncio

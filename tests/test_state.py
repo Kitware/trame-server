@@ -1,3 +1,5 @@
+import asyncio
+import pytest
 from trame_server.state import State
 from trame_server.core import Translator
 
@@ -139,3 +141,107 @@ def test_minimum_change_detection():
     # print(result)
 
     assert expected == result
+
+
+def test_client_only():
+    server = FakeServer()
+    server.add_event("test_client_only")
+    state = State(commit_fn=server._push_state)
+    state.ready()
+
+    state.aa = 1
+    state.client_only("aa")
+
+
+def test_dict_api():
+    server = FakeServer()
+    server.add_event("test_dict_api")
+    state = State(commit_fn=server._push_state)
+    state.flush()  # should return right away since not ready
+    state.ready()
+
+    state.a = 1
+    state.c = []
+    assert state.has("a")
+    assert not state.has("b")
+    state.setdefault("a", 10)
+    state.setdefault("b", 20)
+    assert state.has("b")
+    assert state.a == 1
+    assert state.b == 20
+
+    assert state.is_dirty_all("a", "b")
+    assert state.is_dirty("a", "b")
+    state.flush()
+    assert not state.is_dirty("a", "b")
+    assert state.setdefault("a", 30) == 1
+
+    state.c.append("item")
+    assert not state.is_dirty("c")
+    state.dirty("c")
+    assert state.is_dirty("c")
+
+    assert state.initial == {"a": 1, "b": 20, "c": ["item"]}
+
+
+@pytest.mark.asyncio
+async def test_change_detection():
+    """
+    0 msg  : test_change_detection
+    1 push : {'a': 2}
+    2 msg  : a changed (sync)
+    3 msg  : a changed (async)
+    """
+    server = FakeServer()
+    server.add_event("test_change_detection")
+    state = State(commit_fn=server._push_state, hot_reload=True)
+    state.ready()
+
+    state.a = 1
+
+    @state.change("a")
+    def regular_callback(**__kwargs):
+        server.add_event("a changed (sync)")
+
+    @state.change("a")
+    async def coroutine_callback(**__kwargs):
+        server.add_event("a changed (async)")
+
+    assert "a" in state._pending_update
+    state.clean("a")
+    assert "a" not in state._pending_update
+
+    with state:
+        state.a = 2
+
+    await asyncio.sleep(0.1)
+
+    result = [line.strip() for line in str(server).split("\n")]
+    expected = [line.strip() for line in str(test_change_detection.__doc__).split("\n")]
+
+    # Grab new scenario output
+    # print(expected)
+    # print("-"*60)
+    # print(result)
+
+    assert expected == result
+
+
+def test_dunder():
+    server = FakeServer()
+    server.add_event("test_dunder")
+    state = State(commit_fn=server._push_state, hot_reload=True)
+    state.ready()
+
+    # get dunder
+    assert state.__dict__ != state.__getattr__("__dict__")
+
+    # get private (not in state)
+    assert state._something is None
+
+    # set private (not in state)
+    state._something = 1
+    assert state._something == 1
+
+    state.flush()
+    assert state.to_dict() == {}
