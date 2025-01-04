@@ -75,6 +75,7 @@ class Server:
         self._www = None
         self.serve = {}  # HTTP static endpoints
         self._loaded_modules = set()
+        self._loaded_module_dicts = []
         self._cli_parser = None
         self._root_protocol = None
         self._protocols_to_configure = []
@@ -184,15 +185,17 @@ class Server:
         :param kwargs: Any optional parameters needed for your module setup() function.
         """
         if self.root_server != self:
-            self.root_server.enable_module(module, **kwargs)
-            return
+            return self.root_server.enable_module(module, **kwargs)
 
         # Make sure definitions is a dict while skipping already loaded module
         definitions = module
         if isinstance(definitions, dict):
-            definitions = module
+            if definitions in self._loaded_module_dicts:
+                return False
+
+            self._loaded_module_dicts.append(definitions)
         elif definitions in self._loaded_modules:
-            return
+            return False
         else:
             self._loaded_modules.add(definitions)
             definitions = definitions.__dict__
@@ -215,6 +218,8 @@ class Server:
 
         # Reduce vue_use to merge options
         utils.reduce_vue_use(self.state)
+
+        return True
 
     # -------------------------------------------------------------------------
     # Call methods
