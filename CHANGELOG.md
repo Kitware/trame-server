@@ -1,6 +1,32 @@
 # CHANGELOG
 
 
+## v3.2.5 (2025-01-04)
+
+### Bug Fixes
+
+- **enable_module**: Return True if the module was loaded
+  ([`84aa953`](https://github.com/Kitware/trame-server/commit/84aa953f7dbd1c93cc53b5387a140463c6f5776d))
+
+### Continuous Integration
+
+- Fix url
+  ([`85789e1`](https://github.com/Kitware/trame-server/commit/85789e18e564e4a9b0082137ace575f39dff8eb8))
+
+- Improve test
+  ([`bf20291`](https://github.com/Kitware/trame-server/commit/bf20291072a5f1750e1cd885f494d48e55d8c10e))
+
+### Documentation
+
+- Update README.rst
+  ([`203cdf2`](https://github.com/Kitware/trame-server/commit/203cdf2d814f872fd9b420ef23f2a74000cdd4ef))
+
+### Testing
+
+- **state**: Get 100% coverage
+  ([`d9db56f`](https://github.com/Kitware/trame-server/commit/d9db56f63e43dca6c83867f6b854afe84f6878f8))
+
+
 ## v3.2.4 (2024-12-30)
 
 ### Bug Fixes
