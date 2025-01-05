@@ -7,6 +7,10 @@ trame-server: server implementation of trame |pypi_download|
     :target: https://github.com/Kitware/trame-server/actions/workflows/test_and_release.yml
     :alt: Test and Release
 
+.. image:: https://codecov.io/github/Kitware/trame-server/graph/badge.svg?token=VeOing7nYT
+    :target: https://codecov.io/github/Kitware/trame-server
+    :alt: Code Coverage
+
 trame-server is the server implementation of `trame <https://kitware.github.io/trame/>`_.
 This Python library provide the server implementation of the shared state and controller along with the definition of the web server.
 The web server aims to be flexible so it can be use within a Jupyter environment or as a standalone desktop application.
