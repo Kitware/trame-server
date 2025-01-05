@@ -14,10 +14,15 @@ async def test_client_connection():
     url = f"ws://localhost:{server.port}/ws"
     client = get_client(url)
     asynchronous.create_task(client.connect(secret="wslink-secret"))
-    await asyncio.sleep(0.1)
+
+    for i in range(10):
+        if client.connected == 2:
+            break
+        await asyncio.sleep(0.1)
 
     # should be a noop
     await client.connect()
+
     assert client.connected == 2
 
     @client.change("a")
