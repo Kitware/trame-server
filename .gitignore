@@ -5,6 +5,9 @@
 # OS files
 .DS_Store
 
+# test file
+trame_net.log
+
 # Editor directories and files
 .idea
 .vscode
