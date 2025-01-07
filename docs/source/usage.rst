@@ -15,7 +15,7 @@ To use Trame Server, first install it using pip:
 Running
 -------
 
-To create a server, you can instantiate a `Server` object:
+To create a server, you can instantiate a ``Server`` object:
 
 .. autoclass:: trame_server.Server
 

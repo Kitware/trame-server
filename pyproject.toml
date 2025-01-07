@@ -5,6 +5,7 @@ description = "Internal server side implementation of trame"
 authors = [
     {name = "Kitware Inc."},
 ]
+target-version = "py37"
 dependencies = [
     "wslink>=2.2.2,<3",
     "more-itertools",
@@ -67,7 +68,7 @@ testpaths = [
 [tool.ruff]
 line-length = 88
 indent-width = 4
-target-version = "py37"
+
 
 [tool.ruff.lint]
 extend-select = [

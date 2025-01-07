@@ -49,7 +49,7 @@ The `API Reference <https://trame.readthedocs.io/en/latest/index.html>`_ documen
 **Life cycle callbacks**
 
 Life cycle events are directly managed on the application controller
-and are prefixed with `on_*`.
+and are prefixed with ``on_*``.
 
 * **on_server_start**     : Executed at server.start() call while passing the server as argument.
 * **on_server_bind**      : WSLinkServer is getting bound to trame so you can attach your own routes. Its instance will be passed as argument to callback.
