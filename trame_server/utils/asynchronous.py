@@ -1,12 +1,13 @@
 import asyncio
 import logging
+
 from . import is_dunder, is_private
 
 __all__ = [
+    "StateQueue",
+    "create_state_queue_monitor_task",
     "create_task",
     "decorate_task",
-    "create_state_queue_monitor_task",
-    "StateQueue",
     "handle_task_result",
     "task",
 ]

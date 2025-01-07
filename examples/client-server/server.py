@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+
 from trame.app import get_server
 from trame.ui.vuetify import SinglePageLayout
 from trame.widgets import vuetify
@@ -13,7 +14,7 @@ state.attch_data = None
 
 
 @state.change("test_file")
-def on_file(test_file, **kwargs):
+def on_file(test_file, **_):
     if test_file is not None:
         print("Got file...", test_file.get("name"))
     else:
@@ -21,7 +22,7 @@ def on_file(test_file, **kwargs):
 
 
 @state.change("counter")
-def on_change(counter, **kwargs):
+def on_change(counter, **_):
     msg = f"server::counter = {counter}"
     if state.log is None:
         state.log = ""
@@ -41,11 +42,11 @@ def on_method(*args, **kwargs):
 
 def test_attachment():
     content = Path(__file__)
-    state.attch_data = dict(
-        id=state.counter,
-        time=time.time(),
-        big=server.protocol.addAttachment(content.read_bytes()),
-    )
+    state.attch_data = {
+        "id": state.counter,
+        "time": time.time(),
+        "big": server.protocol.addAttachment(content.read_bytes()),
+    }
 
 
 with SinglePageLayout(server) as layout:

@@ -1,7 +1,9 @@
 import asyncio
+
 import pytest
-from trame_server.state import State
+
 from trame_server.core import Translator
+from trame_server.state import State
 
 
 class FakeServer:
@@ -61,7 +63,7 @@ def test_minimum_change_detection():
     state = State(commit_fn=server._push_state)
 
     @state.change("a")
-    def on_change_exec(a, **kwargs):
+    def on_change_exec(a, **_):
         server.add_event(type="exec", content=a)
 
     state.a = 1
@@ -117,8 +119,8 @@ def test_minimum_change_detection():
     # Use update to set {a: 1, b: 2, c: 3}
     with state:
         server.add_event(f"Enter with a={state.a}")
-        state.update(dict(a=1, b=2, c=3))
-        state.update(dict(a=5, b=3, c=2))
+        state.update({"a": 1, "b": 2, "c": 3})
+        state.update({"a": 5, "b": 3, "c": 2})
         server.add_event(f"About to exit a={state.a}")
 
     server.add_event("(prev=5) After with state + a:1,5 b:2,3 c:3,2")
@@ -126,7 +128,7 @@ def test_minimum_change_detection():
     # Use update to set {a: 1, b: 2, c: 3}
     with state:
         server.add_event(f"Enter with a={state.a}")
-        state.update(dict(a=1, b=2, c=3))
+        state.update({"a": 1, "b": 2, "c": 3})
         server.add_event(f"About to exit a={state.a}")
 
     # Validate event

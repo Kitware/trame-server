@@ -1,11 +1,10 @@
-import os
 import asyncio
-import pytest
+import os
 from pathlib import Path
 
+import pytest
 from trame.app import get_server
 from trame.modules import www
-
 from wslink import register as export_rpc
 from wslink.websocket import LinkProtocol
 
@@ -213,4 +212,4 @@ def test_server_start_sync():
 
 def test_ui():
     server = get_server("test_ui")
-    server.ui.vnode
+    server.ui.vnode  # noqa: B018

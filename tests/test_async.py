@@ -1,11 +1,10 @@
 import asyncio
-import pytest
-
 import multiprocessing
 import time
 from concurrent.futures import ProcessPoolExecutor
 
-from trame.app import get_server, asynchronous
+import pytest
+from trame.app import asynchronous, get_server
 
 
 @pytest.mark.asyncio

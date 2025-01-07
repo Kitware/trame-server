@@ -28,3 +28,9 @@ repos:
     hooks:
       - id: prettier
         types_or: [yaml, markdown, json]
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: "0.29.4"
+    hooks:
+      - id: check-dependabot
+      - id: check-github-workflows
+      - id: check-readthedocs

@@ -1,12 +1,14 @@
 import asyncio
 import threading
 from multiprocessing import Process, Queue
+
 from .asynchronous import handle_task_result
 
 try:
     import webview
-except ImportError:
-    raise ImportError("server.start(exec_mode='desktop', ...) requires pywebview>=3.4")
+except ImportError as err:
+    msg = "server.start(exec_mode='desktop', ...) requires pywebview>=3.4"
+    raise ImportError(msg) from err
 
 WINDOW_ARGS = [
     "html",
@@ -55,6 +57,8 @@ def to_menu(menu_struct, fn_menu_click):
         if isinstance(item, str):
             return webview.menu.MenuAction(label, lambda: fn_menu_click(item))
 
+    return None
+
 
 class BrowserProcess(Process):
     def __init__(
@@ -65,7 +69,7 @@ class BrowserProcess(Process):
         action_queue=None,
         debug=False,
         gui=None,
-        menu=[],
+        menu=None,
         **kwargs,
     ):
         Process.__init__(self)
@@ -73,7 +77,7 @@ class BrowserProcess(Process):
         self._port = port
         self._msg_queue = msg_queue
         self._action_queue = action_queue
-        self._menu = menu
+        self._menu = menu or []
         self._window_args = filter_dict(kwargs, WINDOW_ARGS)
         self._main_window = None
         # start args
@@ -163,6 +167,6 @@ def start_browser(server, **kwargs):
     client_process.start()
 
     def window_call(action, *args, **kwargs):
-        _window_action_queue.put(dict(action=action, args=args, kwargs=kwargs))
+        _window_action_queue.put({"action": action, "args": args, "kwargs": kwargs})
 
     server.controller.pywebview_window_call = window_call

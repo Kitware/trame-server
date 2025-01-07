@@ -8,8 +8,8 @@ import sys
 from typing import Literal
 
 from . import utils
-from .http import HttpHeader
 from .controller import Controller
+from .http import HttpHeader
 from .protocol import CoreServer
 from .state import State
 from .ui import VirtualNodeManager
@@ -27,7 +27,7 @@ DEFAULT_CLIENT_TYPE: ClientType = "vue3"
 
 
 def set_default_client_type(value: ClientType) -> None:
-    global DEFAULT_CLIENT_TYPE
+    global DEFAULT_CLIENT_TYPE  # noqa: PLW0603
     DEFAULT_CLIENT_TYPE = value
 
 
@@ -82,7 +82,7 @@ class Server:
 
         # ENV variable mapping settings
         self.hot_reload = "--hot-reload" in sys.argv or bool(
-            os.getenv("TRAME_HOT_RELOAD", False)
+            os.getenv("TRAME_HOT_RELOAD", None)
         )
         if parent_server is None:
             self._options["log_network"] = self._options.get(
@@ -333,12 +333,11 @@ class Server:
             self._client_type = value
 
         if self.client_type != value:
-            raise TypeError(
-                f"""
-                Trying to switch client_type from {self._client_type} to {value}.
-                The client_type can only be set once.
-            """
+            msg = (
+                f"Trying to switch client_type from {self._client_type} to {value}."
+                "The client_type can only be set once."
             )
+            raise TypeError(msg)
 
     @property
     def cli(self):
@@ -463,11 +462,10 @@ class Server:
 
     def get_server_state(self):
         """Return the current server state"""
-        state = {
+        return {
             "name": self._name,
             "state": self.state.initial,
         }
-        return state
 
     def clear_state_client_cache(self, *state_names):
         protocol = self.protocol
@@ -515,6 +513,10 @@ class Server:
             if pair:
                 obj, func = pair
                 return func(obj, *args, **kwargs)
+            return None
+
+        error = "Protocol does not exist yet"
+        raise ValueError(error)
 
     def force_state_push(self, *key_names):
         """
@@ -589,10 +591,10 @@ class Server:
                 host=host,
                 **kwargs,
             )
-            return
+            return None
 
         if self._running_stage:
-            return
+            return None
 
         # Try to bind client if none were added
         if self._www is None:
@@ -656,9 +658,7 @@ class Server:
         if not reverse_url and show_connection_info and exec_mode != "task":
             from .utils.server import print_informations
 
-            self.controller.on_server_ready.add(
-                lambda **kwargs: print_informations(self)
-            )
+            self.controller.on_server_ready.add(lambda **_: print_informations(self))
 
         if (
             not reverse_url
@@ -668,7 +668,7 @@ class Server:
         ):
             from .utils.browser import open_browser
 
-            self.controller.on_server_ready.add(lambda **kwargs: open_browser(self))
+            self.controller.on_server_ready.add(lambda **_: open_browser(self))
 
         if len(self.serve):
             endpoints = []

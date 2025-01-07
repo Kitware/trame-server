@@ -1,5 +1,5 @@
-import sys
 import socket
+import sys
 
 
 def print_informations(server):
@@ -18,7 +18,6 @@ def print_informations(server):
         print(f" - Network: http://{host_ip}:{server.port}/")
     except socket.gaierror:
         print(f" - Network: http://{options.host}:{server.port}/")
-        pass
 
     print()
     print(

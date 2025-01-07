@@ -1,10 +1,12 @@
-import io
-import pytest
 import asyncio
+import io
 from contextlib import redirect_stdout
-from trame_server import utils
-from trame_server.utils import version, banner, server, hot_reload
+
+import pytest
 from trame.app import get_server
+
+from trame_server import utils
+from trame_server.utils import banner, hot_reload, server, version
 
 
 def test_banner():
@@ -32,8 +34,9 @@ async def test_print_informations():
 
 
 def test_version():
-    from trame_server import __version__ as v_server
     from trame_client import __version__ as v_client
+
+    from trame_server import __version__ as v_server
 
     assert version.get_version("trame_server") == v_server
     assert version.get_version("trame_client") == v_client
@@ -42,9 +45,9 @@ def test_version():
 
 
 def test_utils_fn():
-    assert utils._isascii_36(b"sdv")
-    assert utils._isascii_36("sdv")
-    assert not utils._isascii_36("Hällö, Wörld!")
+    assert utils.isascii(b"sdv")
+    assert utils.isascii("sdv")
+    assert not utils.isascii("Hällö, Wörld!")
 
     # remove filter keys
     input_dict = {"a": "hello", "b": "world", "_filter": ["b"]}

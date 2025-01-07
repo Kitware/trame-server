@@ -1,11 +1,14 @@
+import asyncio
+import logging
 import os
 import traceback
+
 import aiohttp
 import msgpack
-import logging
-from wslink.chunking import generate_chunks, UnChunker
-import asyncio
+from wslink.chunking import UnChunker, generate_chunks
+
 from trame_server.utils import asynchronous
+
 from .state import State
 
 MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", 4194304))
@@ -100,13 +103,13 @@ class WsLinkSession:
     async def auth(self, **kwargs):
         key = WsLinkSession.AUTH_ID
         resp = self.loop.create_future()
-        wrapper = dict(
-            wslink="1.0",
-            id=key,
-            method="wslink.hello",
-            args=[kwargs],
-            kwargs={},
-        )
+        wrapper = {
+            "wslink": "1.0",
+            "id": key,
+            "method": "wslink.hello",
+            "args": [kwargs],
+            "kwargs": {},
+        }
         self.in_flight_rpc[key] = resp
 
         try:
@@ -132,13 +135,13 @@ class WsLinkSession:
         if kwargs is None:
             kwargs = {}
 
-        wrapper = dict(
-            wslink="1.0",
-            id=key,
-            method=method,
-            args=args,
-            kwargs=kwargs,
-        )
+        wrapper = {
+            "wslink": "1.0",
+            "id": key,
+            "method": method,
+            "args": args,
+            "kwargs": kwargs,
+        }
 
         try:
             packed_wrapper = msgpack.packb(wrapper)
@@ -254,9 +257,9 @@ class Client:
                     for k, v in value.items():
                         if k not in skip_keys:
                             new_value[k] = v
-                    delta.append(dict(key=key, value=new_value))
+                    delta.append({"key": key, "value": new_value})
                 else:
-                    delta.append(dict(key=key, value=value))
+                    delta.append({"key": key, "value": value})
             asynchronous.create_task(self._session.call("trame.state.update", [delta]))
 
     def _on_state_update(self, modified_state):

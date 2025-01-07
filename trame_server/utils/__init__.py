@@ -1,5 +1,4 @@
 import msgpack
-import sys
 
 from . import logger
 
@@ -11,30 +10,9 @@ def share(obj, attr_name, default_value):
     return default_value
 
 
-def _isascii_36(s):
-    # For Python < 3.7, we have to use our own isascii() function.
-    # This works for both bytes and strings.
-    try:
-        if isinstance(s, str):
-            s.encode("ascii")
-        else:
-            # Assume bytes
-            s.decode("ascii")
-    except (UnicodeEncodeError, UnicodeDecodeError):
-        return False
-    else:
-        return True
-
-
-def _isascii_37(s):
+def isascii(s):
     # For Python >= 3.7, use the built-in function
     return s.isascii()
-
-
-if sys.version_info >= (3, 7):
-    isascii = _isascii_37
-else:
-    isascii = _isascii_36
 
 
 def is_dunder(s):

@@ -1,6 +1,7 @@
-import pytest
-import logging
 import asyncio
+import logging
+
+import pytest
 
 from trame_server.controller import FunctionNotImplementedError
 
@@ -71,7 +72,7 @@ def test_composition(controller):
     assert controller.func_attr() == [1, 2]
 
     # invalid set
-    with pytest.raises(Exception):
+    with pytest.raises(NameError):
         controller.trigger = fn
 
 

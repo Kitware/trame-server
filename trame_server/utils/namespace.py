@@ -1,4 +1,5 @@
 import logging
+
 from more_itertools import split_when
 
 logger = logging.getLogger(__name__)
@@ -93,14 +94,14 @@ class Translator:
     def translate_js_expression(self, state, expression):
         tokens = []
         for token in split_when(expression, js_tokenizer):
-            token = "".join(token)
-            logger.info("(prefix=%s) token %s", self._prefix, token)
-            if state.has(token):
-                _token = self.translate_key(token)
+            token_str = "".join(token)
+            logger.info("(prefix=%s) token %s", self._prefix, token_str)
+            if state.has(token_str):
+                _token = self.translate_key(token_str)
                 logger.info("(prefix=%s) translated %s", self._prefix, _token)
                 tokens.append(_token)
             else:
-                tokens.append(token)
+                tokens.append(token_str)
 
         logger.info(" => %s", "".join(tokens))
 
@@ -109,12 +110,12 @@ class Translator:
     def translate_vue_templating(self, state, expression):
         tokens = []
         for token in split_when(expression, vue_template_tokenizer):
-            token = "".join(token)
-            logger.info(" token %s", token)
-            if token.startswith("{"):
-                tokens.append(self.translate_js_expression(state, token))
+            token_str = "".join(token)
+            logger.info(" token %s", token_str)
+            if token_str.startswith("{"):
+                tokens.append(self.translate_js_expression(state, token_str))
             else:
-                tokens.append(token)
+                tokens.append(token_str)
         return "".join(tokens)
 
     def __call__(self, key):

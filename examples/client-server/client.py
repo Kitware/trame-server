@@ -1,9 +1,8 @@
-from trame.app import get_server, asynchronous
+from trame.app import asynchronous, get_server
 from trame.ui.vuetify import SinglePageLayout
 from trame.widgets import vuetify
 
 from trame_server.client import Client
-
 
 server = get_server(client_type="vue2")
 state, ctrl = server.state, server.controller
@@ -16,7 +15,7 @@ state.counter = 0
 
 
 @state.change("counter")
-def on_change(counter, **kwargs):
+def on_change(counter, **_):
     if counter == client.state.counter:
         return
 
@@ -41,7 +40,7 @@ async def trigger(*args, **kwargs):
 
 
 @client.state.change("counter")
-def on_remote_change(counter, **kwargs):
+def on_remote_change(counter, **_):
     if counter == state.counter:
         return
 
@@ -57,7 +56,7 @@ def on_remote_change(counter, **kwargs):
 
 
 @client.state.change("test_file")
-def on_file(test_file, **kwargs):
+def on_file(test_file, **_):
     with state:
         msg = f"remote::test_file = {test_file.get('name')}"
         print(list(test_file.keys()))
@@ -66,7 +65,7 @@ def on_file(test_file, **kwargs):
 
 
 @client.state.change("attch_data")
-def on_attachment(attch_data, **kwargs):
+def on_attachment(attch_data, **_):
     with state:
         msg = f"remote::attch_data {attch_data.get('time')}"
         print(msg)
@@ -74,7 +73,7 @@ def on_attachment(attch_data, **kwargs):
 
 
 @ctrl.add("on_server_ready")
-def connect_to_server(**kwargs):
+def connect_to_server(**_):
     url = server.cli.parse_args().url
     print(f"Client connect to {url}")
     asynchronous.create_task(client.connect(url, secret="wslink-secret"))

@@ -1,9 +1,10 @@
-import trame_server
-
 from trame.app import get_server
 from trame.decorators import TrameApp, change
 from trame.ui.vuetify3 import SinglePageLayout
-from trame.widgets import vuetify3 as v3, client
+from trame.widgets import client
+from trame.widgets import vuetify3 as v3
+
+import trame_server
 
 
 @TrameApp()

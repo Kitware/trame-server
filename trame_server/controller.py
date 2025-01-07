@@ -1,5 +1,6 @@
 import logging
-from .utils import is_dunder, asynchronous, share
+
+from .utils import asynchronous, is_dunder, share
 from .utils.hot_reload import reload
 from .utils.namespace import Translator
 
@@ -122,7 +123,7 @@ class Controller:
                 f"'{name}' is a special attribute on Controller that cannot "
                 "be re-assigned"
             )
-            raise Exception(msg)
+            raise NameError(msg)
 
         name = self._translator.translate_key(name)
         if name in self._func_dict:
@@ -338,7 +339,7 @@ class ControllerFunction:
             copy_list = list(map(reload, copy_list))
 
         # Exec added fn after
-        results = list(map(lambda f: f(*args, **kwargs), copy_list))
+        results = [f(*args, **kwargs) for f in copy_list]
 
         # Schedule any task
         for task_fn in list(self.task_funcs):
@@ -347,9 +348,9 @@ class ControllerFunction:
         # Figure out return
         if self.func is None:
             return results
-        elif len(copy_list):
+        if len(copy_list):
             return [result, *results]
-        elif len(self.task_funcs):
+        if len(self.task_funcs):
             return results
         return result
 

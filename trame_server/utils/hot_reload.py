@@ -38,6 +38,7 @@ import site
 import sys
 import traceback
 import types
+from pathlib import Path
 
 try:
     from trame_client.ui.core import AbstractLayout
@@ -169,7 +170,8 @@ def _recompile_function(func):
     tree = _parse_func_file_until_successful(func)
     if not _isolate_function_def(func.__name__, tree):
         path = inspect.getfile(func)
-        raise Exception(f"Failed to find '{func.__qualname__}' in file '{path}'")
+        msg = f"Failed to find '{func.__qualname__}' in file '{path}'"
+        raise Exception(msg)
 
     return compile(tree, filename="", mode="exec")
 
@@ -188,8 +190,7 @@ def _load_file(path):
     src = ""
     # while loop here since while saving, the file may sometimes be empty.
     while src == "":
-        with open(path, "r") as f:
-            src = f.read()
+        src = Path(path).read_text()
     return src + "\n"
 
 
@@ -228,13 +229,14 @@ def _get_decorator_name(dec_node):
     if hasattr(dec_node, "func"):
         if hasattr(dec_node.func, "id"):
             return dec_node.func.id
-        elif hasattr(dec_node.func, "value"):
+        if hasattr(dec_node.func, "value"):
             return dec_node.func.value.id
 
     if hasattr(dec_node, "value"):
         return dec_node.value.id
 
-    raise Exception(f"Failed to find decorator name: {dec_node}")
+    msg = f"Failed to find decorator name: {dec_node}"
+    raise Exception(msg)
 
 
 def _strip_hot_reload_decorator(func):

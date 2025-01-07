@@ -1,7 +1,7 @@
 import asyncio
-import pytest
 
-from trame.app import get_server, get_client, asynchronous
+import pytest
+from trame.app import asynchronous, get_client, get_server
 
 
 @pytest.mark.asyncio
@@ -15,7 +15,7 @@ async def test_client_connection():
     client = get_client(url)
     asynchronous.create_task(client.connect(secret="wslink-secret"))
 
-    for i in range(10):
+    for _ in range(10):
         if client.connected == 2:
             break
         await asyncio.sleep(0.1)

@@ -11,7 +11,7 @@ def build_dialog():
         v3.VCard(title="Test", text="This is a dialog.")
 
         # force state default at exec so translation can work
-        d.html
+        d.html  # noqa: B018
 
 
 @TrameApp()

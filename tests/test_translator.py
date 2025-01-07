@@ -44,11 +44,11 @@ def test_translation():
     assert root_state.a_value == 456
     assert root_state.b_value == 789
 
-    expected_state = dict(
-        value=123,
-        a_value=456,
-        b_value=789,
-    )
+    expected_state = {
+        "value": 123,
+        "a_value": 456,
+        "b_value": 789,
+    }
     assert expected_state == root_state.to_dict()
 
 
@@ -73,11 +73,11 @@ def test_prefix():
     assert root_state.a_value == 456
     assert root_state.b_value == 789
 
-    expected_state = dict(
-        value=123,
-        a_value=456,
-        b_value=789,
-    )
+    expected_state = {
+        "value": 123,
+        "a_value": 456,
+        "b_value": 789,
+    }
     assert expected_state == root_state.to_dict()
 
 
@@ -124,10 +124,10 @@ def test_prefix_and_translation():
     assert a_state.shared_value == 789
     assert b_state.shared_value == 789
 
-    expected_state = dict(
-        value=123,
-        a_value=456,
-        b_value=789,
-        common_shared_value=789,
-    )
+    expected_state = {
+        "value": 123,
+        "a_value": 456,
+        "b_value": 789,
+        "common_shared_value": 789,
+    }
     assert expected_state == root_state.to_dict()

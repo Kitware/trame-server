@@ -1,6 +1,7 @@
 import inspect
 import logging
-from .utils import is_dunder, is_private, asynchronous, share
+
+from .utils import asynchronous, is_dunder, is_private, share
 from .utils.hot_reload import reload
 from .utils.namespace import Translator
 
@@ -54,11 +55,9 @@ class State:
         self._change_callbacks = share(internal, "_change_callbacks", {})
         self._pending_update = share(internal, "_pending_update", {})
         self._pushed_state = share(internal, "_pushed_state", {})
-        #
         self._state_listeners = share(
             internal, "_state_listeners", StateChangeHandler(self._change_callbacks)
         )
-        #
         self._parent_state = internal
         self._children_state = []
         self._ready_flag = ready
@@ -224,7 +223,7 @@ class State:
     def flush(self):
         """Force pushing modified state and execute any @state.change listener"""
         if not self.is_ready:
-            return
+            return None
 
         keys = set()
         if len(self._pending_update):
@@ -241,7 +240,8 @@ class State:
 
                 # Execute state listeners
                 self._state_listeners.add_all(_keys)
-                for callback in self._state_listeners:
+                for fn in self._state_listeners:
+                    callback = fn
                     if self._hot_reload:
                         if not inspect.iscoroutinefunction(callback):
                             callback = reload(callback)
@@ -285,8 +285,8 @@ class State:
         """
 
         def register_change_callback(func):
-            for name in _args:
-                name = self._translator.translate_key(name)
+            for n in _args:
+                name = self._translator.translate_key(n)
                 if name not in self._change_callbacks:
                     self._change_callbacks[name] = []
 

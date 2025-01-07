@@ -1,12 +1,13 @@
-import os
 import inspect
+import os
+from pathlib import Path
 
-from wslink import server
 from wslink import register as exportRpc
+from wslink import server
 from wslink.websocket import ServerProtocol
 
-from trame_server.utils import logger, clean_state
 from trame_server.state import TRAME_NON_INIT_VALUE
+from trame_server.utils import clean_state, logger
 
 
 class CoreServer(ServerProtocol):
@@ -33,7 +34,7 @@ class CoreServer(ServerProtocol):
     @staticmethod
     def configure(args):
         if args.authKeyFile:
-            with open(args.authKeyFile) as key_file:
+            with Path(args.authKeyFile).open("r") as key_file:
                 CoreServer.authentication_token = key_file.read().strip()
         else:
             CoreServer.authentication_token = args.authKey
@@ -119,6 +120,8 @@ class CoreServer(ServerProtocol):
 
         if name in self.rpcMethods:
             return self.rpcMethods[name]
+
+        return None
 
     # ---------------------------------------------------------------
     # Publish
@@ -210,8 +213,9 @@ class CoreServer(ServerProtocol):
                 if inspect.isawaitable(result):
                     result = await result
                 return result
-            else:
-                print(f"Trigger {name} seems to be missing")
+            print(f"Trigger {name} seems to be missing")
+
+        return None
 
     # ---------------------------------------------------------------
 

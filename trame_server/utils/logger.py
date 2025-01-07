@@ -1,4 +1,3 @@
-import os
 import json
 from pathlib import Path
 
@@ -19,10 +18,10 @@ class EscapeEncoder(json.JSONEncoder):
 
 
 def initialize_logger(config):
-    global OUTPUT_LOG
+    global OUTPUT_LOG  # noqa: PLW0603
     OUTPUT_LOG = config.get("log_network", False)
     if OUTPUT_LOG and Path(OUTPUT_LOG).exists():
-        os.remove(OUTPUT_LOG)
+        Path(OUTPUT_LOG).unlink()
 
 
 class StateExchangeType:
@@ -35,7 +34,7 @@ class StateExchangeType:
 
 def state_exchange(exchange, data):
     if OUTPUT_LOG:
-        with open(OUTPUT_LOG, "a") as f:
+        with Path(OUTPUT_LOG).open(mode="a") as f:
             f.write(exchange)
             f.write(json.dumps(data, indent=2, cls=EscapeEncoder))
             f.write("\n")
@@ -66,7 +65,7 @@ def action_c2s(data):
 def error(message):
     print(f"Error: {message}", flush=True)
     if OUTPUT_LOG:
-        with open(OUTPUT_LOG, "a") as f:
+        with Path(OUTPUT_LOG).open(mode="a") as f:
             f.write("-" * 60)
             f.write("\nERROR: ")
             f.write(message)

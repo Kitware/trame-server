@@ -1,11 +1,13 @@
 try:
     # Use importlib metadata if available (python >=3.8)
-    from importlib.metadata import version, PackageNotFoundError
+    from importlib.metadata import PackageNotFoundError, version
 except ImportError:
     # No importlib metadata. Try to use pkg_resources instead.
     from pkg_resources import (
-        get_distribution,
         DistributionNotFound as PackageNotFoundError,
+    )
+    from pkg_resources import (
+        get_distribution,
     )
 
     def version(x):
