@@ -33,7 +33,7 @@ dev = [
 ]
 
 [build-system]
-requires = ['setuptools', 'wheel']
+requires = ['setuptools']
 build-backend = 'setuptools.build_meta'
 
 [tool.setuptools.packages.find]
@@ -56,6 +56,13 @@ build_command = """
 [semantic_release.publish]
 dist_glob_patterns = ["dist/*"]
 upload_to_vcs_release = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
 
 [tool.ruff]
 line-length = 88

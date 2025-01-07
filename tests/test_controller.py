@@ -83,7 +83,7 @@ async def test_tasks(controller):
 
     @controller.add_task("async_fn", clear=True)
     async def async_fn():
-        asyncio.sleep(0.01)
+        await asyncio.sleep(0.01)
         return 2
 
     @controller.add("async_fn")
