@@ -1,6 +1,5 @@
 # CHANGELOG
 
-
 ## v3.2.5 (2025-01-04)
 
 ### Bug Fixes
@@ -26,7 +25,6 @@
 - **state**: Get 100% coverage
   ([`d9db56f`](https://github.com/Kitware/trame-server/commit/d9db56f63e43dca6c83867f6b854afe84f6878f8))
 
-
 ## v3.2.4 (2024-12-30)
 
 ### Bug Fixes
@@ -45,14 +43,12 @@
 - **state**: Add missing doc strings
   ([`09af332`](https://github.com/Kitware/trame-server/commit/09af332cb198738416d4a0ff1f198f120d0ae554))
 
-
 ## v3.2.3 (2024-09-19)
 
 ### Bug Fixes
 
 - **prefix**: Add exclamation to JS delimiters
   ([`74dfcc6`](https://github.com/Kitware/trame-server/commit/74dfcc635552e6a1a4ab85f2717336d76504de85))
-
 
 ## v3.2.2 (2024-09-19)
 
@@ -66,14 +62,12 @@
 - **child_server**: Update example
   ([`9feae26`](https://github.com/Kitware/trame-server/commit/9feae2641e71c3e6ec4aea10811539099dfd1f27))
 
-
 ## v3.2.1 (2024-09-18)
 
 ### Bug Fixes
 
 - **child_server**: Fix method binding on event
   ([`211a196`](https://github.com/Kitware/trame-server/commit/211a196401e6b1200f1f30d54c598462ce0d51b0))
-
 
 ## v3.2.0 (2024-09-16)
 
@@ -90,14 +84,12 @@
 - **network_completion**: Allow to await network_completion
   ([`da22615`](https://github.com/Kitware/trame-server/commit/da226154a98335884a6ff52b66af039890d47207))
 
-
 ## v3.1.2 (2024-09-03)
 
 ### Bug Fixes
 
 - **perf**: State comparison
   ([`f23240b`](https://github.com/Kitware/trame-server/commit/f23240b4d9784f560d09709cc0e8d05a8bfe8277))
-
 
 ## v3.1.1 (2024-09-03)
 
@@ -106,7 +98,6 @@
 - **client**: Add support for msgpack layer
   ([`2d89a0e`](https://github.com/Kitware/trame-server/commit/2d89a0ee4d8377bf14827d3a4d5d33d269af296f))
 
-
 ## v3.1.0 (2024-08-16)
 
 ### Features
@@ -114,14 +105,12 @@
 - **http**: Enable header override for built-in server
   ([`f4467d1`](https://github.com/Kitware/trame-server/commit/f4467d1679d92c998bc4d72473fe0c0a392d2dc8))
 
-
 ## v3.0.3 (2024-07-02)
 
 ### Bug Fixes
 
 - **banner**: Provide option to force flush stdout
   ([`1eabdaf`](https://github.com/Kitware/trame-server/commit/1eabdaf6acda8ce6c6b719ac0c6877eaf4f26051))
-
 
 ## v3.0.2 (2024-06-19)
 
@@ -136,14 +125,12 @@
 - **type**: Use Literal for 'exec_mode' and remove TypeAlias not available in Python<3.10
   ([`725d1a7`](https://github.com/Kitware/trame-server/commit/725d1a7c33b94970d5469b642caa152a374bd091))
 
-
 ## v3.0.1 (2024-05-30)
 
 ### Bug Fixes
 
 - **state**: Allow to clear client cache
   ([`532080b`](https://github.com/Kitware/trame-server/commit/532080b0cea5a1aea21002ef6314bd19851abbf5))
-
 
 ## v3.0.0 (2024-04-10)
 
@@ -158,14 +145,12 @@ BREAKING CHANGE: use wslink>=2 that deeply change network handling
 
 - **wslink**: Use wslink>=2 that deeply change network handling
 
-
 ## v2.17.3 (2024-04-02)
 
 ### Bug Fixes
 
 - **wslink**: Prevent fetching v2
   ([`e5c0969`](https://github.com/Kitware/trame-server/commit/e5c096976fa1926f62bdec2857ef1310956043be))
-
 
 ## v2.17.2 (2024-02-16)
 
@@ -174,10 +159,9 @@ BREAKING CHANGE: use wslink>=2 that deeply change network handling
 - **hot_reload**: Make life_cycle work with hot_reload
   ([`3288b7a`](https://github.com/Kitware/trame-server/commit/3288b7aaa2b57949b64202c48dba98f03e9c5f35))
 
-This also makes _get_decorator_name() more robust and less likely to produce a confusing error.
+This also makes \_get_decorator_name() more robust and less likely to produce a confusing error.
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
-
 
 ## v2.17.1 (2024-02-16)
 
@@ -185,7 +169,6 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
 - **pywebview**: Add menu support
   ([`580b012`](https://github.com/Kitware/trame-server/commit/580b01295861e557d523bc2093cb79ee1553084d))
-
 
 ## v2.17.0 (2024-02-16)
 
@@ -199,14 +182,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **pywebview**: Allow method call on window object
   ([`80edbb7`](https://github.com/Kitware/trame-server/commit/80edbb742e949e2572f3b7db4e211c3a762e0d11))
 
-
 ## v2.16.1 (2024-02-09)
 
 ### Bug Fixes
 
 - **hot-reload**: On controller
   ([`a910340`](https://github.com/Kitware/trame-server/commit/a9103409c0f8969f8fa4cc2b73cedb8d02eefdeb))
-
 
 ## v2.16.0 (2024-01-29)
 
@@ -215,14 +196,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **force_state_push**: Add new server method
   ([`1e0b043`](https://github.com/Kitware/trame-server/commit/1e0b04357f9d81937ec99493ad176a07f8fe8456))
 
-
 ## v2.15.0 (2024-01-09)
 
 ### Features
 
 - **context**: Add server.context, a server side only State object
   ([`f142a17`](https://github.com/Kitware/trame-server/commit/f142a17e72cb4106e6864b12f6fcf6d70810a7eb))
-
 
 ## v2.14.0 (2024-01-01)
 
@@ -231,14 +210,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **vue3**: Vue3 client is the new default
   ([`662309e`](https://github.com/Kitware/trame-server/commit/662309e2ef7435b69003c3ea97b96d180fd35064))
 
-
 ## v2.13.1 (2023-12-08)
 
 ### Bug Fixes
 
 - **trigger**: Update protocol to use controller function
   ([`62ac1be`](https://github.com/Kitware/trame-server/commit/62ac1be076643d5c17e0df449996c6055b119272))
-
 
 ## v2.13.0 (2023-12-08)
 
@@ -257,7 +234,6 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **translator**: Improve translator tests and avoid client dependency
   ([`385ce3d`](https://github.com/Kitware/trame-server/commit/385ce3da305318ed81b98be23039b90f871e223a))
 
-
 ## v2.12.1 (2023-10-31)
 
 ### Bug Fixes
@@ -265,14 +241,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **flush**: Make sure server info is flushed
   ([`49525de`](https://github.com/Kitware/trame-server/commit/49525dedc0ff94020b5f9e9d1dbea3872ba52188))
 
-
 ## v2.12.0 (2023-09-28)
 
 ### Features
 
 - **jupyter**: Add support for Jupyter backend
   ([`2f2aa2b`](https://github.com/Kitware/trame-server/commit/2f2aa2bfed906a8dd6a8d02a58e09cf6c4375bf8))
-
 
 ## v2.11.7 (2023-07-20)
 
@@ -286,14 +260,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - Fix version
   ([`bd31c8b`](https://github.com/Kitware/trame-server/commit/bd31c8bc4f6d70f3b80919afcae4323cd1a889e5))
 
-
 ## v2.11.6 (2023-07-20)
 
 ### Bug Fixes
 
 - **client_type**: Expose default client_type
   ([`7113e12`](https://github.com/Kitware/trame-server/commit/7113e12b142391e667e9db0276f85a4dc87e04a9))
-
 
 ## v2.11.5 (2023-07-14)
 
@@ -302,14 +274,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **argparse**: Skip -- when processing trame-args
   ([`c4333fb`](https://github.com/Kitware/trame-server/commit/c4333fb73f577e954e118f6d32c4888ddfbc82f2))
 
-
 ## v2.11.4 (2023-06-09)
 
 ### Bug Fixes
 
 - **backend**: Allow backend selection from TRAME_BACKEND env
   ([`a160297`](https://github.com/Kitware/trame-server/commit/a16029745404ab0ceab46e50673ba9d10b4610c8))
-
 
 ## v2.11.3 (2023-06-09)
 
@@ -318,14 +288,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **info**: Ensure dynamic port to be printed
   ([`0c7f53a`](https://github.com/Kitware/trame-server/commit/0c7f53a93acef70d3fc3a0a1eaf792a568926b8a))
 
-
 ## v2.11.2 (2023-05-24)
 
 ### Bug Fixes
 
 - **reload**: Don't reload state change corountine
   ([`ba05514`](https://github.com/Kitware/trame-server/commit/ba05514a688b5ac0449d68fb0d056ccbc40a9033))
-
 
 ## v2.11.1 (2023-05-24)
 
@@ -334,14 +302,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **hot-reload**: Remove async task from reload
   ([`cba6a7f`](https://github.com/Kitware/trame-server/commit/cba6a7f0d8a778057c4febf8f6ae52939829b613))
 
-
 ## v2.11.0 (2023-04-25)
 
 ### Features
 
 - **py-client**: Add Python client to drive remote state
   ([`6904605`](https://github.com/Kitware/trame-server/commit/69046058a8d5334192bd07e1de81afb9f35007a5))
-
 
 ## v2.10.0 (2023-03-27)
 
@@ -351,10 +317,10 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
   ([`d2600c3`](https://github.com/Kitware/trame-server/commit/d2600c32a2acb18c7f700239e37581df85c9f57d))
 
 This allows trame arguments to be specified either by a `--trame-args` argument or via a
-  `TRAME_ARGS` environment variable.
+`TRAME_ARGS` environment variable.
 
 It still ignores the regular arguments when we are using `pytest`. But having the `TRAME_ARGS`
-  environment variable allows us to specify arguments for trame when using `pytest`.
+environment variable allows us to specify arguments for trame when using `pytest`.
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
@@ -362,15 +328,14 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
   ([`22746dd`](https://github.com/Kitware/trame-server/commit/22746dd171f2aca4ea2c6675eefd6ffc242c5f95))
 
 This disables argument parsing if either the environment variable TRAME_ARGS_DISABLED is set or
-  pytest has been loaded into the modules (which, right now, is apparently the best way to determine
-  if pytest is running). This fixes an issue where trame would parse arguments from pytest and fail.
-  Since pytest doesn't allow us to add any non-pytest arguments, disable parsing the arguments if we
-  are using pytest.
+pytest has been loaded into the modules (which, right now, is apparently the best way to determine
+if pytest is running). This fixes an issue where trame would parse arguments from pytest and fail.
+Since pytest doesn't allow us to add any non-pytest arguments, disable parsing the arguments if we
+are using pytest.
 
 Fixes: pyvista/pyvista#3973
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
-
 
 ## v2.9.1 (2023-02-15)
 
@@ -382,7 +347,6 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **task_funcs**: Allow controller with only task_funcs
   ([`c6fd518`](https://github.com/Kitware/trame-server/commit/c6fd5189ada5edcdeaa99173badb72c7b7f3e8de))
 
-
 ## v2.9.0 (2023-02-08)
 
 ### Features
@@ -390,18 +354,16 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **client_type**: Improve module handling to support vue2/3
   ([`000899e`](https://github.com/Kitware/trame-server/commit/000899eac77d009281961ad68a98298e03752e42))
 
-
 ## v2.8.1 (2023-01-27)
 
 ### Bug Fixes
 
-- **version**: Add trame_server.__version__
+- **version**: Add trame_server.**version**
   ([`f6957f4`](https://github.com/Kitware/trame-server/commit/f6957f4dabee608c288ac841a38360fa286d1d67))
 
 Partially addresses Kitware/trame#183
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
-
 
 ## v2.8.0 (2023-01-21)
 
@@ -415,7 +377,6 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **on_server_start**: Add new life cycle
   ([`0db1961`](https://github.com/Kitware/trame-server/commit/0db1961f36eee42dd1a16b0eb496104e8b2332b4))
 
-
 ## v2.7.2 (2023-01-20)
 
 ### Bug Fixes
@@ -424,17 +385,16 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
   ([`5884ede`](https://github.com/Kitware/trame-server/commit/5884ede6a2662b830bba6d279d59abab0425e5e7))
 
 This adds a `--hot-reload` option where, if set, controller/state callback functions will be
-  automatically reloaded for every function call. This excludes functions that are located in
-  site-packages directories (which are usually libraries that the user is not currently developing).
+automatically reloaded for every function call. This excludes functions that are located in
+site-packages directories (which are usually libraries that the user is not currently developing).
 
 There is also a `@hot_reload` decorator that may be added to functions as well, which will cause the
-  function to be reloaded every time.
+function to be reloaded every time.
 
 This work is largely based off of https://github.com/julvo/reloading, with some major modifications,
-  including adding support for methods. His license is included within the file.
+including adding support for methods. His license is included within the file.
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
-
 
 ## v2.7.1 (2023-01-20)
 
@@ -445,14 +405,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
 Add environment variable fallback for host definition
 
-
 ## v2.7.0 (2023-01-09)
 
 ### Features
 
 - **ready**: Add ready future on server to await
   ([`6b72322`](https://github.com/Kitware/trame-server/commit/6b72322c06a5ade065355e2ffbd5d74206a89464))
-
 
 ## v2.6.1 (2022-12-10)
 
@@ -464,7 +422,6 @@ Add environment variable fallback for host definition
 Using inspect.isawaitable rather than asyncio.coroutine
 
 fix #7
-
 
 ## v2.6.0 (2022-12-06)
 
@@ -484,7 +441,6 @@ fix #7
 - **security**: Use authKeyFile argument if present
   ([`5c4fb3b`](https://github.com/Kitware/trame-server/commit/5c4fb3b227e8085073ce15dc3a9b5603db93b426))
 
-
 ## v2.5.1 (2022-11-09)
 
 ### Bug Fixes
@@ -493,10 +449,9 @@ fix #7
   ([`a957cdf`](https://github.com/Kitware/trame-server/commit/a957cdf9497aa72b3137cd9e390652311922b285))
 
 If python >= 3.7 is being used, just use the built-in `isascii()` method. But if python < 3.7, we
-  have to use our own.
+have to use our own.
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
-
 
 ## v2.5.0 (2022-10-27)
 
@@ -504,7 +459,6 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
 - **state**: Report when state key is not serializable
   ([`fac8866`](https://github.com/Kitware/trame-server/commit/fac886650d53d052b79d70ac8b99a4847e98ca76))
-
 
 ## v2.4.1 (2022-10-26)
 
@@ -515,14 +469,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
 fix #3
 
-
 ## v2.4.0 (2022-10-24)
 
 ### Features
 
 - **no-http**: Add cmd option to disable HTTP serving
   ([`d34c471`](https://github.com/Kitware/trame-server/commit/d34c4719faf6ff1dc5d223ee3adbc42fb6d17d7c))
-
 
 ## v2.3.0 (2022-10-20)
 
@@ -536,7 +488,6 @@ fix #3
 - **state**: Allow state change to be async + add clean method
   ([`fa41cdd`](https://github.com/Kitware/trame-server/commit/fa41cdd8947319a0c685db9e5b835fca68175295))
 
-
 ## v2.2.1 (2022-09-27)
 
 ### Bug Fixes
@@ -547,14 +498,12 @@ fix #3
 - **controller**: Add support for async tasks
   ([`45bf037`](https://github.com/Kitware/trame-server/commit/45bf037889e684044eb1431922b8f40f9621bd67))
 
-
 ## v2.2.0 (2022-09-22)
 
 ### Features
 
 - **wslink**: Add lifecycle to allow web server routes to be added
   ([`9432cc8`](https://github.com/Kitware/trame-server/commit/9432cc855adc7430dc337c4efcd756c356304840))
-
 
 ## v2.1.6 (2022-08-12)
 
@@ -564,7 +513,6 @@ fix #3
   ([`eb4eceb`](https://github.com/Kitware/trame-server/commit/eb4ecebab1c6e87fad501d74afad93a63852e005))
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
-
 
 ## v2.1.5 (2022-08-10)
 
@@ -594,7 +542,6 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
-
 ## v2.1.4 (2022-06-14)
 
 ### Bug Fixes
@@ -621,14 +568,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
-
 ## v2.1.3 (2022-06-10)
 
 ### Bug Fixes
 
 - **state.update**: Prevent equal value to trigger change
   ([`5d2d5e1`](https://github.com/Kitware/trame-server/commit/5d2d5e1563238d995a34b521f85a3fcba716e950))
-
 
 ## v2.1.2 (2022-06-10)
 
@@ -644,7 +589,6 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
-
 ## v2.1.1 (2022-06-06)
 
 ### Bug Fixes
@@ -652,14 +596,12 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **flush**: Force flush for information print
   ([`fda6300`](https://github.com/Kitware/trame-server/commit/fda6300d42fa83d1350e8fb75412ec1314b03ba5))
 
-
 ## v2.1.0 (2022-06-04)
 
 ### Features
 
 - **ui**: Introduce virtual node manager on server
   ([`f50551e`](https://github.com/Kitware/trame-server/commit/f50551ee1729204f208bc46f9200f4ad78d1197e))
-
 
 ## v2.0.2 (2022-05-30)
 
@@ -674,7 +616,7 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
   ([`fc07473`](https://github.com/Kitware/trame-server/commit/fc07473e85a56853faa5d55ab4d68b4b39917873))
 
 The newest version of semantic release has a bug that causes it to exit with errors. Downgrade to
-  the latest version without the bug.
+the latest version without the bug.
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 
@@ -682,7 +624,6 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
   ([`d25c852`](https://github.com/Kitware/trame-server/commit/d25c8523c3810e8239f2883295f2236a4055c83a))
 
 Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
-
 
 ## v2.0.1 (2022-05-27)
 
@@ -702,7 +643,7 @@ Signed-off-by: Patrick Avery <patrick.avery@kitware.com>
 - **controller**: Add decorator for 'set' and 'add'
   ([`28894d3`](https://github.com/Kitware/trame-server/commit/28894d3a6a52e85b63d744181d19d66ab8020819))
 
-- **kwarg**: Improve **kwarg handling in server.start
+- **kwarg**: Improve \*\*kwarg handling in server.start
   ([`218400d`](https://github.com/Kitware/trame-server/commit/218400d8737e8d92cd601ec07ca3a9d14b451702))
 
 - **vue_use**: Fix typo in 'reduce_vue_use'

@@ -2,9 +2,9 @@ name: Test and Release
 
 on:
   push:
-    branches: [ master ]
+    branches: [master]
   pull_request:
-    branches: [ master ]
+    branches: [master]
 
 jobs:
   pre-commit:
@@ -30,46 +30,37 @@ jobs:
       matrix:
         python-version: ["3.10"]
         config:
-        - {
-            name: "Linux",
-            os: ubuntu-latest
-          }
-        - {
-            name: "MacOSX",
-            os: macos-latest
-          }
-        - {
-            name: "Windows",
-            os: windows-latest
-          }
+          - { name: "Linux", os: ubuntu-latest }
+          - { name: "MacOSX", os: macos-latest }
+          - { name: "Windows", os: windows-latest }
 
     defaults:
       run:
         shell: bash
 
     steps:
-    - name: Checkout
-      uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install and Run Tests
-      run: |
-        pip install ".[dev]"
-        pip install -r tests/requirements.txt
-        # Run the tests with coverage so we get a coverage report too
-        pip install coverage
-        coverage run --omit "*/tests/*" --source . -m pytest .
-        # Print the coverage report
-        coverage report -m
+      - name: Install and Run Tests
+        run: |
+          pip install ".[dev]"
+          pip install -r tests/requirements.txt
+          # Run the tests with coverage so we get a coverage report too
+          pip install coverage
+          coverage run --omit "*/tests/*" --source . -m pytest .
+          # Print the coverage report
+          coverage report -m
 
-    - name: Upload Coverage to Codecov
-      uses: codecov/codecov-action@v4.0.1
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4.0.1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   release:
     needs: [pre-commit, pytest]
@@ -97,4 +88,3 @@ jobs:
       - name: Publish package distributions to PyPI
         if: steps.release.outputs.released == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
-  
