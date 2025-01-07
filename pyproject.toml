@@ -50,10 +50,6 @@ build_command = """
   python -m build .
 """
 
-[semantic_release.publish]
-dist_glob_patterns = ["dist/*"]
-upload_to_vcs_release = true
-
 [tool.pytest.ini_options]
 log_cli_level = "INFO"
 xfail_strict = true
@@ -67,7 +63,6 @@ testpaths = [
 [tool.ruff]
 line-length = 88
 indent-width = 4
-target-version = "py37"
 
 [tool.ruff.lint]
 extend-select = [
@@ -124,6 +119,3 @@ docstring-code-line-length = "dynamic"
 
 [tool.ruff.lint.pycodestyle]
 max-line-length = 120
-
-[lint.pydocstyle]
-convention = "google"
