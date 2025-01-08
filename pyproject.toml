@@ -63,6 +63,7 @@ testpaths = [
 [tool.ruff]
 line-length = 88
 indent-width = 4
+target-version = "py37"
 
 [tool.ruff.lint]
 extend-select = [
