@@ -247,3 +247,88 @@ def test_dunder():
 
     state.flush()
     assert state.to_dict() == {}
+
+
+@pytest.mark.asyncio
+async def test_modified_keys():
+    """
+     0 msg  : test_modified_keys
+     1 push : {'a': 1, 'b': 2, 'c': 3}
+     2 msg  : get initial a,b,c
+     3 msg  : changed should be => a
+     4 push : {'a': 2}
+     5 msg  : changed ['a']
+     6 msg  : End of flush 1
+     7 msg  : changed should be => a, b
+     8 push : {'a': 3, 'b': 4}
+     9 msg  : changed ['a', 'b']
+    10 msg  : End of flush 2
+    11 msg  : changed should be => a, b, c
+    12 push : {'a': 4, 'b': 6, 'c': 6}
+    13 msg  : changed ['a', 'b', 'c']
+    14 msg  : side effect c => a + b
+    15 push : {'a': 4.5, 'b': 6.5}
+    16 msg  : changed ['a', 'b']
+    17 msg  : End of flush 3
+    """
+    server = FakeServer()
+    server.add_event("test_modified_keys")
+    state = State(commit_fn=server._push_state)
+
+    NAMES = ["a", "b", "c"]
+    state.update(
+        {
+            "a": 1,
+            "b": 2,
+            "c": 3,
+        }
+    )
+    state.ready()
+    server.add_event("get initial a,b,c")
+    await asyncio.sleep(0.01)
+
+    @state.change(*NAMES)
+    def on_change(**_):
+        m_keys = list(state.modified_keys)
+        m_keys.sort()
+        server.add_event(f"changed {m_keys}")
+
+    @state.change("c")
+    def trigger_side_effect(**_):
+        server.add_event("side effect c => a + b")
+        state.a += 0.5
+        state.b += 0.5
+
+    with state:
+        state.a += 1
+        server.add_event("changed should be => a")
+
+    # yield
+    await asyncio.sleep(0.01)
+    server.add_event("End of flush 1")
+
+    with state:
+        state.a += 1
+        state.b += 2
+        server.add_event("changed should be => a, b")
+
+    # yield
+    await asyncio.sleep(0.01)
+    server.add_event("End of flush 2")
+
+    with state:
+        state.a += 1
+        state.b += 2
+        state.c += 3
+        server.add_event("changed should be => a, b, c")
+
+    # yield
+    await asyncio.sleep(0.1)
+    server.add_event("End of flush 3")
+
+    result = [line.strip() for line in str(server).split("\n")]
+    expected = [line.strip() for line in str(test_modified_keys.__doc__).split("\n")]
+
+    print(result)
+
+    assert expected == result

@@ -52,6 +52,7 @@ class State:
         self._push_state_fn = commit_fn
         self._hot_reload = hot_reload
         self._translator = translator if translator else Translator()
+        self._modified_keys = share(internal, "_modified_keys", set())
         self._change_callbacks = share(internal, "_change_callbacks", {})
         self._pending_update = share(internal, "_pending_update", {})
         self._pushed_state = share(internal, "_pushed_state", {})
@@ -220,6 +221,39 @@ class State:
             if _dict[key] == self._pushed_state.get(key, TRAME_NON_INIT_VALUE):
                 self._pending_update.pop(key, None)
 
+    @property
+    def modified_keys(self):
+        """
+        Return the set of state's keys that are modified
+        for the current state.change update.
+
+        Usage example:
+        --------------
+
+        >>> NAMES = ["a", "b", "c"]
+        >>> state.update({"a": 1, "b": 2, "c": 3})
+
+        >>> @state.change(*NAMES)
+        ... def on_change(*_):
+        ...     for name in state.modified_keys:
+        ...         print(f"{name} value updated to {state[name]}")
+
+        >>> with state:
+        ...     state.a += 1
+
+        >>> with state:
+        ...     state.a += 1
+        ...     state.b += 2
+
+        >>>  with state:
+        ...    state.a += 1
+        ...    state.b += 2
+        ...    state.c += 3
+
+        """
+        # for child server we may need to run the translator on them
+        return self._modified_keys
+
     def flush(self):
         """Force pushing modified state and execute any @state.change listener"""
         if not self.is_ready:
@@ -231,6 +265,10 @@ class State:
 
             while len(_keys):
                 keys |= _keys
+
+                # update modified keys for current update batch
+                self._modified_keys.clear()
+                self._modified_keys |= _keys
 
                 # Do the flush
                 if self._push_state_fn:
