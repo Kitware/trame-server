@@ -30,6 +30,7 @@ dev = [
     "ruff",
     "pytest",
     "pytest-asyncio",
+    "nox",
 ]
 
 [build-system]
