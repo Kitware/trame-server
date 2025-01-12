@@ -1,6 +1,37 @@
 # CHANGELOG
 
 
+## v3.3.0 (2025-01-12)
+
+### Chores
+
+- Fix pyproject syntax
+  ([`296c4cd`](https://github.com/Kitware/trame-server/commit/296c4cdc6a86aa17ad591d5b80eff5c14714553e))
+
+### Continuous Integration
+
+- Pre-commit exclude changelog
+  ([`3231702`](https://github.com/Kitware/trame-server/commit/3231702c57c8ea55ede3384a815c883a7a7dffea))
+
+- **pyproject**: Add target-version in tool.ruff
+  ([`468c467`](https://github.com/Kitware/trame-server/commit/468c4675bf9ff48b61580bee82b405d6a38f4bd6))
+
+### Documentation
+
+- **state**: Example of state.modified_keys usgae
+  ([`ca5b51e`](https://github.com/Kitware/trame-server/commit/ca5b51e97eab99563547191dc297161f96ef4727))
+
+### Features
+
+- **state**: Add modified_keys accessor
+  ([`12733a1`](https://github.com/Kitware/trame-server/commit/12733a182019aa23dcfe441ba29cbfacb194fdd7))
+
+### Testing
+
+- **state**: Fix possible exec order swap
+  ([`1f8dd8a`](https://github.com/Kitware/trame-server/commit/1f8dd8acfb50b1279944ea74edd8c3d96f4bb02d))
+
+
 ## v3.2.7 (2025-01-07)
 
 ### Bug Fixes
