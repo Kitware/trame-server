@@ -178,7 +178,7 @@ class Server:
           - styles  = []           : List all CSS URL that should be loaded
           - vue_use = ['libName', ('libName2', { **options })]: List Vue plugin to load
           - state = {}             : Set of variable to add to state
-          - server = { data: '/path/on/fs' }: Set of endpoints to server static content
+          - serve = { data: '/path/on/fs' }: Set of endpoints to serve static content
           - www = '/path/on/fs'    : Path served as main web content
 
         :param module: A module to enable or a dict()
