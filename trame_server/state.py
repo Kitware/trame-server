@@ -40,6 +40,13 @@ class State:
     """
     Flexible dictionary managing a server shared state.
     Variables can be accessed with either the `[]` or `.` notation.
+
+    :examples:
+
+    >>> with state:
+    ...     state.a = 1
+    ...     state.b = 2
+    ... # state is flushed()
     """
 
     def __init__(
@@ -201,6 +208,8 @@ class State:
         """
         Mark existing variable name(s) to be modified in a way that
         they will be pushed again at flush time.
+        Note that the variable(s) will be unmarked automatically when reset
+        to its previous value.
         """
         _args = self._translator.translate_list(_args)
         for key in _args:
@@ -259,7 +268,12 @@ class State:
         return self._modified_keys
 
     def flush(self):
-        """Force pushing modified state and execute any @state.change listener"""
+        """
+        Force pushing modified state and execute any @state.change listener
+        if the variable value is different (by value AND reference) from its
+        previous value or if `dirty` has been flagged on the variable and it has
+        not been unflagged since.
+        """
         if not self.is_ready:
             return None
 
@@ -328,8 +342,18 @@ class State:
         will be called like so `_fn(**state)` when any of the listed key name
         is getting modified from either client or server.
 
+        Can also be used as a function to decorate method functions (see
+        2nd example below)
+
         :param *_args: A list of variable name to monitor
         :type *_args: str
+        :examples:
+        >>> @state.change("a", "b") # for functions
+        ... def on_change(a, b, **kwargs):
+        ...   pass
+
+        >>> state.change("a")(self.on_a_change) # for methods
+        :see-also TrameApp
         """
 
         def register_change_callback(func):
