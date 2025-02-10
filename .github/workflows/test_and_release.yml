@@ -85,7 +85,7 @@ jobs:
 
       - name: Python Semantic Release
         id: release
-        uses: relekang/python-semantic-release@v9.17.0
+        uses: relekang/python-semantic-release@v9.19.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
