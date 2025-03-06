@@ -1,5 +1,6 @@
 import inspect
 import logging
+import weakref
 
 from .utils import asynchronous, is_dunder, is_private, share
 from .utils.hot_reload import reload
@@ -162,7 +163,10 @@ class State:
         return result
 
     def setdefault(self, key, value):
-        """Set an initial value if the key is not present yet"""
+        """
+        Set an initial value if the key is not present yet
+        :returns the value in the state for the given key
+        """
         key = self._translator.translate_key(key)
         if key in self._pushed_state:
             return self._pushed_state[key]
@@ -279,7 +283,13 @@ class State:
                 # Execute state listeners
                 self._state_listeners.add_all(_keys)
                 for fn in self._state_listeners:
-                    callback = fn
+                    if isinstance(fn, weakref.WeakMethod):
+                        callback = fn()
+                        if callback is None:
+                            continue
+                    else:
+                        callback = fn
+
                     if self._hot_reload:
                         if not inspect.iscoroutinefunction(callback):
                             callback = reload(callback)
