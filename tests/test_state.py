@@ -1,4 +1,5 @@
 import asyncio
+import weakref
 
 import pytest
 
@@ -339,3 +340,38 @@ async def test_modified_keys():
     print(result)
 
     assert expected == result
+
+
+def test_weakref():
+    server = FakeServer()
+    state = State(commit_fn=server._push_state, hot_reload=True)
+    state.ready()
+
+    class Obj:
+        method_call_count = 0
+        destructor_call_count = 0
+
+        def __del__(self):
+            Obj.destructor_call_count += 1
+
+        def fn(self, *_args, **_kwargs):
+            Obj.method_call_count += 1
+            print("Obj.fn called")
+            return 1
+
+    o = Obj()
+
+    state.a = 1
+
+    state.change("a")(weakref.WeakMethod(o.fn))
+
+    state.a = 2
+    state.flush()
+    assert Obj.method_call_count == 1
+
+    del o
+    assert Obj.destructor_call_count == 1
+
+    state.a = 3
+    state.flush()
+    assert Obj.method_call_count == 1

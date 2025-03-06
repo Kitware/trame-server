@@ -1,10 +1,19 @@
 import logging
+import weakref
 
 from .utils import asynchronous, is_dunder, share
 from .utils.hot_reload import reload
 from .utils.namespace import Translator
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_call(f, *args, **kwargs):
+    return (
+        f() and f()(*args, **kwargs)
+        if isinstance(f, weakref.WeakMethod)
+        else f(*args, **kwargs)
+    )
 
 
 class TriggerCounter:
@@ -333,17 +342,19 @@ class ControllerFunction:
             else:
                 f = self.func
 
-            result = f(*args, **kwargs)
+            result = _safe_call(f, *args, **kwargs)
 
         if self.hot_reload:
             copy_list = list(map(reload, copy_list))
 
         # Exec added fn after
-        results = [f(*args, **kwargs) for f in copy_list]
+        results = [_safe_call(f, *args, **kwargs) for f in copy_list]
 
         # Schedule any task
         for task_fn in list(self.task_funcs):
-            results.append(asynchronous.create_task(task_fn(*args, **kwargs)))
+            results.append(
+                asynchronous.create_task(_safe_call(task_fn, *args, **kwargs))
+            )
 
         # Figure out return
         if self.func is None:

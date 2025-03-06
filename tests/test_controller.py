@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import weakref
 
 import pytest
 
@@ -74,6 +75,38 @@ def test_composition(controller):
     # invalid set
     with pytest.raises(NameError):
         controller.trigger = fn
+
+
+def test_weakrefs(controller):
+    class Obj:
+        method_call_count = 0
+        destructor_call_count = 0
+
+        def __del__(self):
+            Obj.destructor_call_count += 1
+
+        def fn(self):
+            Obj.method_call_count += 1
+            print("Obj.fn called")
+            return 1
+
+    o = Obj()
+
+    controller.func.add(weakref.WeakMethod(o.fn))
+
+    @controller.add("func")
+    def fn_1():
+        return 1.5
+
+    controller.func()
+    assert Obj.method_call_count == 1
+
+    del o
+
+    assert Obj.destructor_call_count == 1
+
+    controller.func()
+    assert Obj.method_call_count == 1
 
 
 @pytest.mark.asyncio
