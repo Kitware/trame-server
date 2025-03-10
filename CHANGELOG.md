@@ -1,6 +1,156 @@
 # CHANGELOG
 
 
+## v3.4.0 (2025-03-10)
+
+### Build System
+
+- **deps**: Bump codecov/codecov-action in the actions group
+  ([`0866ed1`](https://github.com/Kitware/trame-server/commit/0866ed1308dd75748ce183cf5522d1e612391a8d))
+
+Bumps the actions group with 1 update:
+  [codecov/codecov-action](https://github.com/codecov/codecov-action).
+
+Updates `codecov/codecov-action` from 5.3.1 to 5.4.0 - [Release
+  notes](https://github.com/codecov/codecov-action/releases) -
+  [Changelog](https://github.com/codecov/codecov-action/blob/main/CHANGELOG.md) -
+  [Commits](https://github.com/codecov/codecov-action/compare/v5.3.1...v5.4.0)
+
+--- updated-dependencies: - dependency-name: codecov/codecov-action dependency-type:
+  direct:production
+
+update-type: version-update:semver-minor
+
+dependency-group: actions ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump relekang/python-semantic-release in the actions group
+  ([`413f728`](https://github.com/Kitware/trame-server/commit/413f728030c2e9b3e6057a51038d4f7847c190e7))
+
+Bumps the actions group with 1 update:
+  [relekang/python-semantic-release](https://github.com/relekang/python-semantic-release).
+
+Updates `relekang/python-semantic-release` from 9.19.1 to 9.21.0 - [Release
+  notes](https://github.com/relekang/python-semantic-release/releases) -
+  [Changelog](https://github.com/python-semantic-release/python-semantic-release/blob/master/CHANGELOG.rst)
+  - [Commits](https://github.com/relekang/python-semantic-release/compare/v9.19.1...v9.21.0)
+
+--- updated-dependencies: - dependency-name: relekang/python-semantic-release dependency-type:
+  direct:production
+
+update-type: version-update:semver-minor
+
+dependency-group: actions ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump relekang/python-semantic-release in the actions group
+  ([`8f90229`](https://github.com/Kitware/trame-server/commit/8f90229a0b1d67209ab69a2ca4a40a344e0e26b7))
+
+Bumps the actions group with 1 update:
+  [relekang/python-semantic-release](https://github.com/relekang/python-semantic-release).
+
+Updates `relekang/python-semantic-release` from 9.19.0 to 9.19.1 - [Release
+  notes](https://github.com/relekang/python-semantic-release/releases) -
+  [Changelog](https://github.com/python-semantic-release/python-semantic-release/blob/master/CHANGELOG.rst)
+  - [Commits](https://github.com/relekang/python-semantic-release/compare/v9.19.0...v9.19.1)
+
+--- updated-dependencies: - dependency-name: relekang/python-semantic-release dependency-type:
+  direct:production
+
+update-type: version-update:semver-patch
+
+dependency-group: actions ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump relekang/python-semantic-release in the actions group
+  ([`8169c38`](https://github.com/Kitware/trame-server/commit/8169c38b64927919401154831b86d216f8c6282f))
+
+Bumps the actions group with 1 update:
+  [relekang/python-semantic-release](https://github.com/relekang/python-semantic-release).
+
+Updates `relekang/python-semantic-release` from 9.17.0 to 9.19.0 - [Release
+  notes](https://github.com/relekang/python-semantic-release/releases) -
+  [Changelog](https://github.com/python-semantic-release/python-semantic-release/blob/master/CHANGELOG.rst)
+  - [Commits](https://github.com/relekang/python-semantic-release/compare/v9.17.0...v9.19.0)
+
+--- updated-dependencies: - dependency-name: relekang/python-semantic-release dependency-type:
+  direct:production
+
+update-type: version-update:semver-minor
+
+dependency-group: actions ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump relekang/python-semantic-release in the actions group
+  ([`e630f73`](https://github.com/Kitware/trame-server/commit/e630f7387b71777b172544aba87c2f17fac080a0))
+
+Bumps the actions group with 1 update:
+  [relekang/python-semantic-release](https://github.com/relekang/python-semantic-release).
+
+Updates `relekang/python-semantic-release` from 9.15.2 to 9.16.1 - [Release
+  notes](https://github.com/relekang/python-semantic-release/releases) -
+  [Changelog](https://github.com/python-semantic-release/python-semantic-release/blob/master/CHANGELOG.md)
+  - [Commits](https://github.com/relekang/python-semantic-release/compare/v9.15.2...v9.16.1)
+
+--- updated-dependencies: - dependency-name: relekang/python-semantic-release dependency-type:
+  direct:production
+
+update-type: version-update:semver-minor
+
+dependency-group: actions ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+- **deps**: Bump the actions group with 2 updates
+  ([`faa7b32`](https://github.com/Kitware/trame-server/commit/faa7b3263baa730f541fd8e8b93641d6d2c294a3))
+
+Bumps the actions group with 2 updates:
+  [codecov/codecov-action](https://github.com/codecov/codecov-action) and
+  [relekang/python-semantic-release](https://github.com/relekang/python-semantic-release).
+
+Updates `codecov/codecov-action` from 5.1.2 to 5.3.1 - [Release
+  notes](https://github.com/codecov/codecov-action/releases) -
+  [Changelog](https://github.com/codecov/codecov-action/blob/main/CHANGELOG.md) -
+  [Commits](https://github.com/codecov/codecov-action/compare/v5.1.2...v5.3.1)
+
+Updates `relekang/python-semantic-release` from 9.16.1 to 9.17.0 - [Release
+  notes](https://github.com/relekang/python-semantic-release/releases) -
+  [Changelog](https://github.com/python-semantic-release/python-semantic-release/blob/master/CHANGELOG.md)
+  - [Commits](https://github.com/relekang/python-semantic-release/compare/v9.16.1...v9.17.0)
+
+--- updated-dependencies: - dependency-name: codecov/codecov-action dependency-type:
+  direct:production
+
+update-type: version-update:semver-minor
+
+dependency-group: actions
+
+- dependency-name: relekang/python-semantic-release dependency-type: direct:production
+
+dependency-group: actions ...
+
+Signed-off-by: dependabot[bot] <support@github.com>
+
+### Continuous Integration
+
+- Add nox setup
+  ([`b30ecac`](https://github.com/Kitware/trame-server/commit/b30ecac926b126123a1d9c42abaa3055a3e0d6f5))
+
+### Documentation
+
+- **enable_module**: Serve instead of server
+  ([`8221d95`](https://github.com/Kitware/trame-server/commit/8221d95a04b3b28b4b349f514de3a170eb84d6f1))
+
+### Features
+
+- **weakref**: Support weakref.WeakMethod in state.change and ctrl
+  ([`db9c2a4`](https://github.com/Kitware/trame-server/commit/db9c2a4b549f295412ead2bf95ffeb00b68a35c3))
+
+
 ## v3.3.0 (2025-01-12)
 
 ### Chores
@@ -57,9 +207,7 @@ Updates `codecov/codecov-action` from 4.0.1 to 5.1.2 - [Release
 
 update-type: version-update:semver-major
 
-dependency-group: actions
-
-...
+dependency-group: actions ...
 
 Signed-off-by: dependabot[bot] <support@github.com>
 
@@ -259,7 +407,7 @@ Signed-off-by: dependabot[bot] <support@github.com>
 
 BREAKING CHANGE: use wslink>=2 that deeply change network handling
 
-### BREAKING CHANGES
+### Breaking Changes
 
 - **wslink**: Use wslink>=2 that deeply change network handling
 
