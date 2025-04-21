@@ -348,11 +348,11 @@ class State:
         :param *_args: A list of variable name to monitor
         :type *_args: str
         :examples:
-        >>> @state.change("a", "b") # for functions
+        >>> @state.change("a", "b")  # for functions
         ... def on_change(a, b, **kwargs):
-        ...   pass
+        ...     pass
 
-        >>> state.change("a")(self.on_a_change) # for methods
+        >>> state.change("a")(self.on_a_change)  # for methods
         :see-also TrameApp
         """
 
