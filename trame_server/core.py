@@ -738,6 +738,7 @@ class Server:
         elif self._running_stage:
             await self._server.stop()
             self._running_future = None
+        self._running_stage = 0
 
     @property
     def port(self) -> int:
