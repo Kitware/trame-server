@@ -733,11 +733,13 @@ class Server:
 
     async def stop(self) -> None:
         """Coroutine for stopping the server"""
+        print("Stopping server...")
         if self.root_server != self:
             await self.root_server.stop()
         elif self._running_stage:
             await self._server.stop()
             self._running_future = None
+        self._running_stage = 0
 
     @property
     def port(self) -> int:
