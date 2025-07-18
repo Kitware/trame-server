@@ -70,6 +70,12 @@ typed_state = TypedState(state, TrameState, encoders=[CustomEncoder()])
 print(f"State field path: {typed_state.name.inner.text_value}")
 
 
+# Nested instances can be split into separate typed states if needed
+inner_state = typed_state.get_sub_state(typed_state.name.inner)
+assert isinstance(inner_state, TypedState)
+assert inner_state.name.text_value == typed_state.name.inner.text_value
+
+
 # State change callbacks
 def on_text_change(text_value):
     print(f"Current text: {text_value}")

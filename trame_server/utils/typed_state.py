@@ -18,6 +18,7 @@ from uuid import UUID
 from trame_server.state import State
 
 T = TypeVar("T")
+V = TypeVar("V")
 
 
 class IStateEncoderDecoder(ABC):
@@ -208,17 +209,20 @@ class TypedState(Generic[T]):
         *,
         namespace="",
         encoders: list[IStateEncoderDecoder] | None = None,
+        encoder: IStateEncoderDecoder | None = None,
+        data: T | None = None,
+        name: T | None = None,
     ):
-        self._encoder = CollectionEncoderDecoder(encoders)
+        self._encoder = encoder or CollectionEncoderDecoder(encoders)
         self.state = state
-        self.data = self._create_state_proxy(
+        self.data = data or self._create_state_proxy(
             dataclass_type=dataclass_type,
             state=state,
             namespace=namespace,
             encoder=self._encoder,
         )
 
-        self.name = self._create_state_names_proxy(
+        self.name = name or self._create_state_names_proxy(
             dataclass_type=dataclass_type,
             namespace=namespace,
         )
@@ -389,6 +393,18 @@ class TypedState(Generic[T]):
         return cls._get_proxy_dataclass_type(instance) is not None
 
     @classmethod
+    def is_name_proxy_class(cls, instance: T) -> bool:
+        return cls.is_proxy_class(instance) and type(instance).__name__.endswith(
+            "__ProxyName"
+        )
+
+    @classmethod
+    def is_data_proxy_class(cls, instance: T) -> bool:
+        return cls.is_proxy_class(instance) and type(instance).__name__.endswith(
+            "__Proxy"
+        )
+
+    @classmethod
     def get_state_id(cls, instance: T, default: str = "") -> str:
         """
         :return: State id string attached to the input state proxy or default if the input is not a state proxy
@@ -495,3 +511,26 @@ class TypedState(Generic[T]):
             values = [state_id_to_field_dict[k] for k in value_keys]
             values = [v if cls.is_proxy_class(v) else v.get_value() for v in values]
             callback(*values)
+
+    def get_sub_state(self, sub_name: V) -> "TypedState[V]":
+        """
+        Create a TypedState based on a sub nested dataclass name proxy.
+        The created TypedState will have the same state ids as the ones present in the full TypedState.
+        This method can be used to simplify the connection of a "full" TypedState to sub UI components such as buttons
+        or sliders.
+
+        :returns: New typed state based on the given input sub name.
+        """
+        if not self.is_name_proxy_class(sub_name):
+            _error_msg = f"Sub state creation should be called with a Name Proxy instance. Got: {type(sub_name)}"
+            raise RuntimeError(_error_msg)
+
+        state_id = self.get_state_id(sub_name)
+        sub_data = self.get_field_proxy_dict(self.data)[state_id]
+        return TypedState(
+            self.state,
+            self._get_proxy_dataclass_type(sub_name),
+            encoder=self._encoder,
+            data=sub_data,
+            name=sub_name,
+        )
