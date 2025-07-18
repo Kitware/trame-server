@@ -300,3 +300,31 @@ def test_can_encode_values_consistently_with_proxy_encoding(state):
     assert typed_state.encode([{"text": e.name, "value": e} for e in MyEnum]) == [
         {"text": e.name, "value": e.name + "_CUSTOM"} for e in MyEnum
     ]
+
+
+def test_can_check_if_is_specific_proxy_type(state):
+    typed_state = TypedState(state, MyBiggerData)
+    assert TypedState.is_name_proxy_class(typed_state.name.my_other_data)
+    assert TypedState.is_data_proxy_class(typed_state.data.my_other_data)
+
+
+@dataclass
+class DualState:
+    d1: MyData = field(default_factory=MyData)
+    d2: MyData = field(default_factory=MyData)
+
+
+def test_supports_creating_sub_states(state):
+    typed_state = TypedState(state, DualState)
+
+    sub_state_1 = typed_state.get_sub_state(typed_state.name.d1)
+    assert isinstance(sub_state_1, TypedState)
+    assert sub_state_1.name.a == typed_state.name.d1.a
+
+    typed_state.data.d1.a = 808
+    assert sub_state_1.data.a == 808
+
+    sub_state_2 = typed_state.get_sub_state(typed_state.name.d2)
+    assert sub_state_2.name.a == typed_state.name.d2.a
+
+    assert sub_state_1._encoder == sub_state_2._encoder == typed_state._encoder
