@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timezone
 from enum import Enum, auto
+from pathlib import Path
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
@@ -114,6 +115,7 @@ class DataWithTypes:
     my_datetime: datetime
     my_date: date
     my_time: time
+    my_path: Path
 
 
 def test_has_default_encoders_and_decoders_for_basic_types(state):
@@ -128,6 +130,7 @@ def test_has_default_encoders_and_decoders_for_basic_types(state):
     typed_state.data.my_datetime = dt
     typed_state.data.my_date = dt.date()
     typed_state.data.my_time = dt.time()
+    typed_state.data.my_path = Path(__file__)
 
     assert typed_state.data.my_enum == MyEnum.B
     assert typed_state.data.my_uuid == uuid
@@ -136,6 +139,7 @@ def test_has_default_encoders_and_decoders_for_basic_types(state):
     assert typed_state.data.my_datetime == dt
     assert typed_state.data.my_date == dt.date()
     assert typed_state.data.my_time == dt.time()
+    assert typed_state.data.my_path == Path(__file__)
 
     assert state[typed_state.name.my_enum] == MyEnum.B.value
     assert state[typed_state.name.my_uuid] == str(uuid)
@@ -144,6 +148,7 @@ def test_has_default_encoders_and_decoders_for_basic_types(state):
     assert state[typed_state.name.my_datetime] == dt.isoformat()
     assert state[typed_state.name.my_date] == dt.date().isoformat()
     assert state[typed_state.name.my_time] == dt.time().isoformat()
+    assert state[typed_state.name.my_path] == Path(__file__).as_posix()
 
 
 def test_can_customize_encoders_and_decoders(state):

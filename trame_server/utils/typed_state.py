@@ -3,6 +3,7 @@ from dataclasses import MISSING, Field, fields, is_dataclass
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from enum import Enum
+from pathlib import Path
 from typing import (
     Any,
     Callable,
@@ -60,6 +61,8 @@ class DefaultEncoderDecoder(IStateEncoderDecoder):
             return obj.isoformat()
         if isinstance(obj, time):
             return obj.isoformat()
+        if isinstance(obj, Path):
+            return obj.as_posix()
         return obj
 
     def decode(self, obj, obj_type: type):
