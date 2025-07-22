@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timezone
 from enum import Enum, auto
@@ -333,3 +334,24 @@ def test_supports_creating_sub_states(state):
     assert sub_state_2.name.a == typed_state.name.d2.a
 
     assert sub_state_1._encoder == sub_state_2._encoder == typed_state._encoder
+
+
+@pytest.mark.asyncio
+async def test_is_compatible_with_async_bind_changes(state):
+    typed_state = TypedState(state, MyData)
+
+    mock = MagicMock()
+
+    async def async_callback(value):
+        await asyncio.sleep(0.1)
+        mock(value)
+
+    typed_state.bind_changes({typed_state.name.a: async_callback})
+
+    with state:
+        typed_state.data.a = 43
+
+    await asyncio.sleep(0.05)
+    mock.assert_not_called()
+    await asyncio.sleep(0.1)
+    mock.assert_called_once_with(43)
