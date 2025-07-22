@@ -1,3 +1,4 @@
+import inspect
 from abc import ABC, abstractmethod
 from dataclasses import MISSING, Field, fields, is_dataclass
 from datetime import date, datetime, time, timezone
@@ -509,11 +510,22 @@ class TypedState(Generic[T]):
 
         value_keys = cls.get_value_state_keys(keys)
 
-        @state.change(*cls.get_reactive_state_id_keys(keys))
+        # On state change, get strongly typed values from the typed state and call the callback with the given values
         def _on_state_change(**_):
             values = [state_id_to_field_dict[k] for k in value_keys]
             values = [v if cls.is_proxy_class(v) else v.get_value() for v in values]
-            callback(*values)
+            return callback(*values)
+
+        # Define an async variant for state change in case the bound method is async
+        async def _on_state_change_async(**_):
+            await _on_state_change()
+
+        # Use state change closure to bind to direct or async version depending on the bound callback
+        state.change(*cls.get_reactive_state_id_keys(keys))(
+            _on_state_change_async
+            if inspect.iscoroutinefunction(callback)
+            else _on_state_change
+        )
 
     def get_sub_state(self, sub_name: V) -> "TypedState[V]":
         """
