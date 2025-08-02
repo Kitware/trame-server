@@ -5,6 +5,7 @@ from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
+from types import UnionType
 from typing import (
     Any,
     Callable,
@@ -12,8 +13,10 @@ from typing import (
     Iterable,
     Type,
     TypeVar,
+    Union,
     cast,
     get_args,
+    get_origin,
 )
 from uuid import UUID
 
@@ -23,10 +26,24 @@ T = TypeVar("T")
 V = TypeVar("V")
 
 
+class _SerializationFailure:
+    """
+    Simple class to handle encoding / decoding failures
+    """
+
+    def __init__(self, reason: str = ""):
+        self.reason = reason
+
+    def __eq__(self, other):
+        return isinstance(other, _SerializationFailure)
+
+
 class IStateEncoderDecoder(ABC):
     """
     State to/from primitive type encoding/decoding interface.
     """
+
+    _failure = _SerializationFailure()
 
     @abstractmethod
     def encode(self, obj):
@@ -37,11 +54,12 @@ class IStateEncoderDecoder(ABC):
         pass
 
     @staticmethod
-    def raise_unhandled_type(obj):
-        _error_msg = (
-            f"Object of type {type(obj).__name__} is not trame state serializable"
-        )
-        raise TypeError(_error_msg)
+    def failed_serialization(reason: str = "") -> _SerializationFailure:
+        return _SerializationFailure(reason)
+
+    @classmethod
+    def is_serialization_success(cls, value):
+        return not isinstance(value, _SerializationFailure)
 
 
 class DefaultEncoderDecoder(IStateEncoderDecoder):
@@ -67,6 +85,10 @@ class DefaultEncoderDecoder(IStateEncoderDecoder):
         return obj
 
     def decode(self, obj, obj_type: type):
+        if obj is None:
+            return None
+        if isinstance(obj, obj_type):
+            return obj
         if issubclass(obj_type, datetime):
             return obj_type.fromisoformat(obj)
         if issubclass(obj_type, date):
@@ -79,8 +101,10 @@ class DefaultEncoderDecoder(IStateEncoderDecoder):
 
 class CollectionEncoderDecoder(IStateEncoderDecoder):
     """
-    Encoding/decoding for lists and dicts. Delegates to an encoder list for contained types.
-    Expects the encoder in its encoder list to raise TypeError when encoding / decoding a specific type is not possible.
+    Encoding/decoding for lists, tuples, dicts and type unions. Delegates to an encoder list for contained types.
+    Expects the encoder in its encoder list to return self.failed_serialization when encoding / decoding a specific
+    type is not possible.
+    If the delegate encoder raises an error, the error will be caught and considered as failed_serialization.
     Encoder will continue to the following encoder if the previous one wasn't able to encode / decode it.
 
     :param encoders: List of encoders to use when encoding/decoding lists and dicts.
@@ -93,34 +117,83 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
         if isinstance(obj, dict):
             return {self.encode(key): self.encode(value) for key, value in obj.items()}
 
-        if isinstance(obj, list):
-            return [self.encode(value) for value in obj]
+        if self._is_iterable(obj):
+            return type(obj)(self.encode(value) for value in obj)
 
         for encoder in self._encoders:
-            try:
-                return encoder.encode(obj)
-            except TypeError:
-                continue
+            val = self._try_serialize(encoder.encode, obj)
+            if self.is_serialization_success(val):
+                return val
         return obj
+
+    @classmethod
+    def _is_iterable(cls, obj):
+        return isinstance(obj, list) or isinstance(obj, tuple)
+
+    def _try_serialize(self, f, *args):
+        try:
+            return f(*args)
+        except Exception as e:
+            return self.failed_serialization(str(e))
 
     def decode(self, obj, obj_type: type):
-        if isinstance(obj, dict):
-            key_type, value_type = get_args(obj_type)
-            return {
-                self.decode(key, key_type): self.decode(value, value_type)
-                for key, value in obj.items()
-            }
-
-        if isinstance(obj, list):
-            value_type = get_args(obj_type)[0]
-            return [self.decode(value, value_type) for value in obj]
-
-        for encoder in self._encoders:
-            try:
-                return encoder.decode(obj, obj_type)
-            except TypeError:
-                continue
+        val = self._try_decode(obj, obj_type)
+        if self.is_serialization_success(val):
+            return val
         return obj
+
+    def _try_decode(self, obj, obj_type: type):
+        for decode in self._decode_strategies():
+            val = decode(obj, obj_type)
+            if self.is_serialization_success(val):
+                return val
+        return self.failed_serialization()
+
+    def _decode_strategies(self) -> list[Callable[[Any, type], Any]]:
+        return [
+            self._decode_union,
+            self._decode_dict,
+            self._decode_iterable,
+            self._delegate_decode,
+        ]
+
+    def _delegate_decode(self, obj, obj_type: type):
+        for encoder in self._encoders:
+            val = self._try_serialize(encoder.decode, obj, obj_type)
+            if self.is_serialization_success(val):
+                return val
+        return self.failed_serialization()
+
+    def _decode_dict(self, obj, obj_type: type):
+        if not isinstance(obj, dict):
+            return self.failed_serialization()
+
+        key_type, value_type = get_args(obj_type)
+        return {
+            self.decode(key, key_type): self.decode(value, value_type)
+            for key, value in obj.items()
+        }
+
+    def _decode_iterable(self, obj, obj_type: type):
+        if not self._is_iterable(obj):
+            return self.failed_serialization()
+
+        value_type = get_args(obj_type)[0]
+        return obj_type(self.decode(value, value_type) for value in obj)
+
+    def _decode_union(self, obj, obj_type: type):
+        if not self._is_union_type(obj_type):
+            return self.failed_serialization()
+
+        for sub_union_type in get_args(obj_type):
+            val = self._try_decode(obj, sub_union_type)
+            if self.is_serialization_success(val):
+                return val
+        return self.failed_serialization()
+
+    @classmethod
+    def _is_union_type(cls, obj_type: type):
+        return get_origin(obj_type) is Union or isinstance(obj_type, UnionType)
 
 
 class _ProxyField:
