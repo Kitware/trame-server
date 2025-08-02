@@ -111,6 +111,7 @@ class MyEnum(Enum):
 class DataWithTypes:
     my_enum: MyEnum
     my_uuid: UUID
+    my_enum_tuple: tuple[MyEnum]
     my_enum_list: list[MyEnum]
     my_enum_dict: dict[MyEnum, MyEnum]
     my_datetime: datetime
@@ -124,6 +125,7 @@ def test_has_default_encoders_and_decoders_for_basic_types(state):
     typed_state.data.my_enum = MyEnum.B
     uuid = uuid4()
     typed_state.data.my_uuid = uuid
+    typed_state.data.my_enum_tuple = (MyEnum.A, MyEnum.C)
     typed_state.data.my_enum_list = [MyEnum.A, MyEnum.C]
     typed_state.data.my_enum_dict = {MyEnum.A: MyEnum.B}
 
@@ -135,6 +137,7 @@ def test_has_default_encoders_and_decoders_for_basic_types(state):
 
     assert typed_state.data.my_enum == MyEnum.B
     assert typed_state.data.my_uuid == uuid
+    assert typed_state.data.my_enum_tuple == (MyEnum.A, MyEnum.C)
     assert typed_state.data.my_enum_list == [MyEnum.A, MyEnum.C]
     assert typed_state.data.my_enum_dict == {MyEnum.A: MyEnum.B}
     assert typed_state.data.my_datetime == dt
@@ -144,6 +147,7 @@ def test_has_default_encoders_and_decoders_for_basic_types(state):
 
     assert state[typed_state.name.my_enum] == MyEnum.B.value
     assert state[typed_state.name.my_uuid] == str(uuid)
+    assert state[typed_state.name.my_enum_tuple] == (MyEnum.A.value, MyEnum.C.value)
     assert state[typed_state.name.my_enum_list] == [MyEnum.A.value, MyEnum.C.value]
     assert state[typed_state.name.my_enum_dict] == {MyEnum.A.value: MyEnum.B.value}
     assert state[typed_state.name.my_datetime] == dt.isoformat()
@@ -290,13 +294,19 @@ def test_can_bind_to_arbitrary_callback_args(state):
     mock_b.assert_called_once_with(2, 3.4)
 
 
-def test_can_encode_values_consistently_with_proxy_encoding(state):
-    class CustomEnumEncode(DefaultEncoderDecoder):
-        def encode(self, obj):
-            if isinstance(obj, MyEnum):
-                return obj.name + "_CUSTOM"
-            return super().encode(obj)
+class CustomEnumEncode(DefaultEncoderDecoder):
+    def encode(self, obj):
+        if isinstance(obj, MyEnum):
+            return obj.name + "_CUSTOM"
+        return super().encode(obj)
 
+    def decode(self, obj, obj_type: type):
+        if issubclass(obj_type, MyEnum) and isinstance(obj, str):
+            return MyEnum[obj.replace("_CUSTOM", "")]
+        return super().decode(obj, obj_type)
+
+
+def test_can_encode_values_consistently_with_proxy_encoding(state):
     typed_state = TypedState(
         state,
         MyBiggerData,
@@ -355,3 +365,57 @@ async def test_is_compatible_with_async_bind_changes(state):
     mock.assert_not_called()
     await asyncio.sleep(0.1)
     mock.assert_called_once_with(43)
+
+
+@dataclass
+class DataWithUnionTypes:
+    my_optional_enum: MyEnum | None
+    my_str_or_enum: str | MyEnum
+    my_enum_or_str: MyEnum | str
+    my_optional_enum_list: list[MyEnum | str | None] | None
+
+
+def test_handles_union_types_by_order_of_definition(state):
+    encode = CustomEnumEncode()
+    typed_state = TypedState(state, DataWithUnionTypes, encoders=[encode])
+
+    b_enum = MyEnum.B
+    b_str = encode.encode(b_enum)
+
+    typed_state.data.my_optional_enum = None
+    typed_state.data.my_str_or_enum = b_str
+    typed_state.data.my_enum_or_str = b_str
+
+    assert typed_state.data.my_optional_enum is None
+    assert typed_state.data.my_str_or_enum == b_str
+    assert typed_state.data.my_enum_or_str == b_enum
+
+    assert state[typed_state.name.my_optional_enum] is None
+    assert state[typed_state.name.my_str_or_enum] == b_str
+    assert state[typed_state.name.my_enum_or_str] == b_str
+
+    typed_state.data.my_optional_enum = b_enum
+    typed_state.data.my_str_or_enum = b_enum
+    typed_state.data.my_enum_or_str = b_enum
+    assert typed_state.data.my_optional_enum == b_enum
+    assert typed_state.data.my_str_or_enum == b_str
+    assert typed_state.data.my_enum_or_str == b_enum
+
+    assert state[typed_state.name.my_optional_enum] == b_str
+    assert state[typed_state.name.my_str_or_enum] == b_str
+    assert state[typed_state.name.my_enum_or_str] == b_str
+
+
+def test_handles_list_of_union(state):
+    encode = CustomEnumEncode()
+    typed_state = TypedState(state, DataWithUnionTypes, encoders=[encode])
+
+    b_enum = MyEnum.B
+    b_str = encode.encode(b_enum)
+
+    typed_state.data.my_optional_enum_list = None
+    assert typed_state.data.my_optional_enum_list is None
+
+    typed_state.data.my_optional_enum_list = [b_str, b_enum, None]
+    assert typed_state.data.my_optional_enum_list == [b_enum, b_enum, None]
+    assert state[typed_state.name.my_optional_enum_list] == [b_str, b_str, None]
