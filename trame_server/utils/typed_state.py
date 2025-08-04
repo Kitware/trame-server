@@ -17,6 +17,7 @@ from typing import (
     cast,
     get_args,
     get_origin,
+    get_type_hints,
 )
 from uuid import UUID
 
@@ -124,7 +125,9 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
             val = self._try_serialize(encoder.encode, obj)
             if self.is_serialization_success(val):
                 return val
-        return obj
+
+        _error_msg = f"Failed to encode object {obj}. No appropriate encoder in {self._encoders}."
+        raise TypeError(_error_msg)
 
     @classmethod
     def _is_iterable(cls, obj):
@@ -140,7 +143,9 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
         val = self._try_decode(obj, obj_type)
         if self.is_serialization_success(val):
             return val
-        return obj
+
+        _error_msg = f"Failed to decode object {obj} of type {obj_type}. No appropriate decoder in {self._encoders}."
+        raise TypeError(_error_msg)
 
     def _try_decode(self, obj, obj_type: type):
         for decode in self._decode_strategies():
@@ -361,14 +366,14 @@ class TypedState(Generic[T]):
         """
         encoder = encoder or CollectionEncoderDecoder(None)
 
-        def handler(state_id: str, field: Field):
+        def handler(state_id: str, field: Field, field_type: type):
             return _ProxyField(
                 state=state,
                 state_id=state_id,
                 name=field.name,
                 default=field.default,
                 default_factory=field.default_factory,
-                field_type=field.type,
+                field_type=field_type,
                 state_encoder=encoder,
             )
 
@@ -385,7 +390,7 @@ class TypedState(Generic[T]):
             namespace prefix.
         """
 
-        def handler(state_id: str, _field: Field):
+        def handler(state_id: str, _field: Field, _field_type: type):
             return _NameField(state_id=state_id)
 
         return cls._build_proxy_cls(dataclass_type, namespace, handler, "__ProxyName")
@@ -395,7 +400,7 @@ class TypedState(Generic[T]):
         cls,
         dataclass_type: Type[T],
         prefix: str,
-        handler: Callable[[str, Field], Any],
+        handler: Callable[[str, Field, type], Any],
         cls_suffix: str,
         proxy_field_dict: dict | None = None,
     ) -> T:
@@ -415,14 +420,19 @@ class TypedState(Generic[T]):
         class_name = dataclass_type.__name__
         inner_field_dict = {}
         prefix = f"{prefix}__{class_name}" if prefix else class_name
+
+        # Use type hints instead of field.type to avoid lazy evaluation of field.type when used in files containing
+        # from __future__ import annotations header.
+        field_types = get_type_hints(dataclass_type)
         for f in fields(dataclass_type):
             state_id = f"{prefix}__{f.name}"
-            if is_dataclass(f.type):
+            f_type = field_types[f.name]
+            if is_dataclass(f_type):
                 field = cls._build_proxy_cls(
-                    f.type, state_id, handler, cls_suffix, inner_field_dict
+                    f_type, state_id, handler, cls_suffix, inner_field_dict
                 )
             else:
-                field = handler(state_id, f)
+                field = handler(state_id, f, f_type)
 
             inner_field_dict[cls.get_state_id(field, state_id)] = field
             namespace[f.name] = field

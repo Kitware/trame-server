@@ -419,3 +419,21 @@ def test_handles_list_of_union(state):
     typed_state.data.my_optional_enum_list = [b_str, b_enum, None]
     assert typed_state.data.my_optional_enum_list == [b_enum, b_enum, None]
     assert state[typed_state.name.my_optional_enum_list] == [b_str, b_str, None]
+
+
+def test_failure_to_encode_raises_type_error(state):
+    class RaiseEncode(DefaultEncoderDecoder):
+        def encode(self, _obj):
+            raise AssertionError()
+
+        def decode(self, _obj, _obj_type: type):
+            raise AssertionError()
+
+    typed_state = TypedState(state, DataWithTypes, encoders=[RaiseEncode()])
+    state.setdefault(typed_state.name.my_enum, MyEnum.A.value)
+
+    with pytest.raises(TypeError):
+        typed_state.data.my_enum = MyEnum.A
+
+    with pytest.raises(TypeError):
+        print(typed_state.data.my_enum)
