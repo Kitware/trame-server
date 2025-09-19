@@ -437,3 +437,89 @@ def test_failure_to_encode_raises_type_error(state):
 
     with pytest.raises(TypeError):
         print(typed_state.data.my_enum)
+
+
+@dataclass
+class SimpleTypes:
+    my_int: int
+    my_enum: MyEnum
+    my_path: Path
+
+
+@dataclass
+class TypedComposite:
+    simple_types: SimpleTypes = field(default_factory=SimpleTypes)
+
+
+@dataclass
+class DataclassCollections:
+    nested_list: list[TypedComposite] = field(default_factory=list)
+    nested_dict: dict[str, TypedComposite] = field(default_factory=dict)
+
+
+def test_encode_decode_supports_collections_of_nested_dataclass(state):
+    typed_state = TypedState(state, DataclassCollections)
+    typed_state.data.nested_list = [
+        TypedComposite(
+            SimpleTypes(my_int=1, my_enum=MyEnum.A, my_path=Path("/path/to/1"))
+        ),
+        TypedComposite(
+            SimpleTypes(my_int=2, my_enum=MyEnum.B, my_path=Path("/path/to/2"))
+        ),
+    ]
+
+    typed_state.data.nested_dict = {
+        "3": TypedComposite(
+            SimpleTypes(my_int=3, my_enum=MyEnum.C, my_path=Path("/path/to/3"))
+        ),
+        "4": TypedComposite(
+            SimpleTypes(my_int=4, my_enum=MyEnum.A, my_path=Path("/path/to/4"))
+        ),
+    }
+
+    assert typed_state.data.nested_list[0] == TypedComposite(
+        SimpleTypes(my_int=1, my_enum=MyEnum.A, my_path=Path("/path/to/1"))
+    )
+    assert typed_state.data.nested_list[1] == TypedComposite(
+        SimpleTypes(my_int=2, my_enum=MyEnum.B, my_path=Path("/path/to/2"))
+    )
+    assert typed_state.data.nested_dict["3"] == TypedComposite(
+        SimpleTypes(my_int=3, my_enum=MyEnum.C, my_path=Path("/path/to/3"))
+    )
+    assert typed_state.data.nested_dict["4"] == TypedComposite(
+        SimpleTypes(my_int=4, my_enum=MyEnum.A, my_path=Path("/path/to/4"))
+    )
+
+    assert state[typed_state.name.nested_list] == [
+        {
+            "simple_types": {
+                "my_int": 1,
+                "my_enum": typed_state.encode(MyEnum.A),
+                "my_path": typed_state.encode("/path/to/1"),
+            }
+        },
+        {
+            "simple_types": {
+                "my_int": 2,
+                "my_enum": typed_state.encode(MyEnum.B),
+                "my_path": typed_state.encode("/path/to/2"),
+            }
+        },
+    ]
+
+    assert state[typed_state.name.nested_dict] == {
+        "3": {
+            "simple_types": {
+                "my_int": 3,
+                "my_enum": typed_state.encode(MyEnum.C),
+                "my_path": typed_state.encode("/path/to/3"),
+            }
+        },
+        "4": {
+            "simple_types": {
+                "my_int": 4,
+                "my_enum": typed_state.encode(MyEnum.A),
+                "my_path": typed_state.encode("/path/to/4"),
+            }
+        },
+    }

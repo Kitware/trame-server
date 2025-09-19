@@ -115,6 +115,12 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
         self._encoders = encoders or [DefaultEncoderDecoder()]
 
     def encode(self, obj):
+        if is_dataclass(obj):
+            return {
+                field.name: self.encode(getattr(obj, field.name))
+                for field in fields(obj)
+            }
+
         if isinstance(obj, dict):
             return {self.encode(key): self.encode(value) for key, value in obj.items()}
 
@@ -156,6 +162,7 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
 
     def _decode_strategies(self) -> list[Callable[[Any, type], Any]]:
         return [
+            self._decode_dataclass,
             self._decode_union,
             self._decode_dict,
             self._decode_iterable,
@@ -195,6 +202,17 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
             if self.is_serialization_success(val):
                 return val
         return self.failed_serialization()
+
+    def _decode_dataclass(self, obj, obj_type: type):
+        if not is_dataclass(obj_type):
+            return self.failed_serialization()
+
+        field_types = get_type_hints(obj_type)
+        decoded_dict = {
+            field.name: self._try_decode(obj.get(field.name), field_types[field.name])
+            for field in fields(obj_type)
+        }
+        return obj_type(**decoded_dict)
 
     @classmethod
     def _is_union_type(cls, obj_type: type):
