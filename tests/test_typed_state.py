@@ -17,10 +17,19 @@ from trame_server.utils.typed_state import (
 
 
 @pytest.fixture
-def state():
-    server = Server()
+def server():
+    return Server()
+
+@pytest.fixture
+def state(server):
     server.state.ready()
     return server.state
+
+@pytest.fixture
+def child_state(server):
+    child_server = server.create_child_server(prefix="child_")
+    child_server.state.ready()
+    return child_server.state
 
 
 @dataclass
@@ -99,6 +108,17 @@ def test_can_be_used_to_connect_to_state_changes(state):
     state.flush()
 
     mock.assert_called_once_with(53)
+
+
+def test_can_handle_child_server(state, child_state):
+    typed_state_main = TypedState(state, MyData)
+    typed_state_child = TypedState(child_state, MyData)
+
+    typed_state_main.data.a = 40
+    typed_state_child.data.a = 3
+
+    assert typed_state_main.data.a != typed_state_child.data.a
+    assert typed_state_child.data.a == state[f"child_{typed_state_child.name.a}"]
 
 
 class MyEnum(Enum):
