@@ -20,10 +20,12 @@ from trame_server.utils.typed_state import (
 def server():
     return Server()
 
+
 @pytest.fixture
 def state(server):
     server.state.ready()
     return server.state
+
 
 @pytest.fixture
 def child_state(server):
