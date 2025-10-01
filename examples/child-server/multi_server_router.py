@@ -1,5 +1,5 @@
 from trame.app import TrameApp
-from trame.decorators import trigger
+from trame.decorators import controller, trigger
 from trame.ui.router import RouterViewLayout
 from trame.ui.vuetify3 import SinglePageLayout, VAppLayout
 from trame.widgets import router
@@ -20,11 +20,16 @@ class FirstApp(TrameApp):
     def test_trigger(self) -> None:
         print(self.state.test)
 
+    @controller.add("test_controller")
+    def test_controller(self) -> None:
+        print(self.state.test)
+
     def _build_ui(self) -> None:
         with VAppLayout(self.server, full_height=True), v3.VContainer(), v3.VCard(
             title="This is the first app"
         ):
-            v3.VBtn("Test", click="console.log(test); trame.trigger('test');")
+            v3.VBtn("Test Trigger", click="console.log(test); trame.trigger('test');")
+            v3.VBtn("Test Controller", click=self.ctrl.test_controller)
 
 
 class SecondApp(TrameApp):
@@ -39,11 +44,16 @@ class SecondApp(TrameApp):
     def trigger_test(self) -> None:
         print(self.state.test)
 
+    @controller.add("test_controller")
+    def test_controller(self) -> None:
+        print(self.state.test)
+
     def _build_ui(self) -> None:
         with VAppLayout(self.server, full_height=True), v3.VContainer(), v3.VCard(
             title="This is the second app"
         ):
-            v3.VBtn("Test", click="console.log(test); trame.trigger('test');")
+            v3.VBtn("Test Trigger", click="console.log(test); trame.trigger('test');")
+            v3.VBtn("Test Controller", click=self.ctrl.test_controller)
 
 
 class MainApp(TrameApp):

@@ -175,7 +175,6 @@ class Controller:
             ctrl.on_server_ready.add(on_ready)
 
         """
-        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             if clear:
@@ -206,7 +205,6 @@ class Controller:
             ctrl.on_server_ready.once(on_ready)
 
         """
-        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             self[name].once(func)
@@ -249,7 +247,6 @@ class Controller:
             ctrl.on_server_ready.add_task(on_ready)
 
         """
-        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             if clear:
@@ -295,7 +292,6 @@ class Controller:
             ctrl.on_server_ready = on_ready
 
         """
-        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             if clear:
