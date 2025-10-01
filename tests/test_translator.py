@@ -1,11 +1,23 @@
 import logging
 
-from trame_server.core import State
+from trame_server.core import Controller, State
 
 logger = logging.getLogger(__name__)
 
 
-def test_translation():
+def func1():
+    return 1
+
+
+def func2():
+    return 2
+
+
+def func3():
+    return 3
+
+
+def test_state_translation():
     root_state = State()
     a_state = State(internal=root_state)
     b_state = State(internal=root_state)
@@ -52,7 +64,53 @@ def test_translation():
     assert expected_state == root_state.to_dict()
 
 
-def test_prefix():
+def test_controller_translation():
+    root_controller = Controller()
+    a_controller = Controller(internal=root_controller)
+    b_controller = Controller(internal=root_controller)
+
+    root_controller.func = func1
+    assert root_controller.func() == 1
+    assert a_controller.func() == 1
+    assert b_controller.func() == 1
+
+    a_controller.func = func2
+    assert root_controller.func() == 2
+    assert a_controller.func() == 2
+    assert b_controller.func() == 2
+
+    b_controller.func = func3
+    assert root_controller.func() == 3
+    assert a_controller.func() == 3
+    assert b_controller.func() == 3
+
+    a_controller._translator.add_translation("func", "a_func")
+    b_controller._translator.add_translation("func", "b_func")
+    root_controller.func = func1
+    a_controller.func = func2
+    b_controller.func = func3
+
+    assert root_controller.func() == 1
+    assert a_controller.func() == 2
+    assert b_controller.func() == 3
+    assert root_controller.a_func() == 2
+    assert root_controller.b_func() == 3
+
+    expected_controller = {
+        "func": func1,
+        "a_func": func2,
+        "b_func": func3,
+    }
+    assert all(
+        func in root_controller._func_dict.keys() for func in expected_controller.keys()
+    )
+    assert all(
+        expected_controller[func]() == root_controller[func]()
+        for func in expected_controller.keys()
+    )
+
+
+def test_state_prefix():
     root_state = State()
     a_state = State(internal=root_state)
     b_state = State(internal=root_state)
@@ -81,7 +139,38 @@ def test_prefix():
     assert expected_state == root_state.to_dict()
 
 
-def test_prefix_and_translation():
+def test_controller_prefix():
+    root_controller = Controller()
+    a_controller = Controller(internal=root_controller)
+    b_controller = Controller(internal=root_controller)
+
+    a_controller._translator.set_prefix("a_")
+    b_controller._translator.set_prefix("b_")
+    root_controller.func = func1
+    a_controller.func = func2
+    b_controller.func = func3
+
+    assert root_controller.func() == 1
+    assert a_controller.func() == 2
+    assert b_controller.func() == 3
+    assert root_controller.a_func() == 2
+    assert root_controller.b_func() == 3
+
+    expected_controller = {
+        "func": func1,
+        "a_func": func2,
+        "b_func": func3,
+    }
+    assert all(
+        func in root_controller._func_dict.keys() for func in expected_controller.keys()
+    )
+    assert all(
+        expected_controller[func]() == root_controller[func]()
+        for func in expected_controller.keys()
+    )
+
+
+def test_state_prefix_and_translation():
     root_state = State()
     a_state = State(internal=root_state)
     b_state = State(internal=root_state)
@@ -131,3 +220,56 @@ def test_prefix_and_translation():
         "common_shared_value": 789,
     }
     assert expected_state == root_state.to_dict()
+
+
+def test_controller_prefix_and_translation():
+    root_controller = Controller()
+    a_controller = Controller(internal=root_controller)
+    b_controller = Controller(internal=root_controller)
+
+    a_controller._translator.set_prefix("a_")
+    b_controller._translator.set_prefix("b_")
+
+    root_controller._translator.add_translation("shared_func", "common_shared_func")
+    a_controller._translator.add_translation("shared_func", "common_shared_func")
+    b_controller._translator.add_translation("shared_func", "common_shared_func")
+
+    root_controller.func = func1
+    a_controller.func = func2
+    b_controller.func = func3
+    assert root_controller.func() == 1
+    assert a_controller.func() == 2
+    assert b_controller.func() == 3
+    assert root_controller.a_func() == 2
+    assert root_controller.b_func() == 3
+
+    root_controller.shared_func = func1
+    assert root_controller.shared_func() == 1
+    assert a_controller.shared_func() == 1
+    assert b_controller.shared_func() == 1
+
+    a_controller.shared_func = func2
+    assert root_controller.shared_func() == 2
+    assert a_controller.shared_func() == 2
+    assert b_controller.shared_func() == 2
+
+    b_controller.shared_func = func3
+    assert root_controller.shared_func() == 3
+    assert a_controller.shared_func() == 3
+    assert b_controller.shared_func() == 3
+
+    expected_controller = {
+        "func": func1,
+        "a_func": func2,
+        "b_func": func3,
+        "common_shared_func": func3,
+    }
+
+    assert all(
+        func_name in root_controller._func_dict.keys()
+        for func_name in expected_controller.keys()
+    )
+    assert all(
+        func() == root_controller[func_name]()
+        for func_name, func in expected_controller.items()
+    )
