@@ -296,7 +296,7 @@ class State:
 
                 # Execute state listeners
                 self._state_listeners.add_all(_keys)
-                for fn in self._state_listeners:
+                for fn, translator in self._state_listeners:
                     if isinstance(fn, weakref.WeakMethod):
                         callback = fn()
                         if callback is None:
@@ -308,7 +308,10 @@ class State:
                         if not inspect.iscoroutinefunction(callback):
                             callback = reload(callback)
 
-                    coroutine = callback(**self._pushed_state)
+                    reverse_translated_state = translator.reverse_translate_dict(
+                        self._pushed_state
+                    )
+                    coroutine = callback(**reverse_translated_state)
                     if inspect.isawaitable(coroutine):
                         asynchronous.create_task(coroutine)
 
@@ -362,7 +365,7 @@ class State:
                 if name not in self._change_callbacks:
                     self._change_callbacks[name] = []
 
-                self._change_callbacks[name].append(func)
+                self._change_callbacks[name].append((func, self._translator))
             return func
 
         return register_change_callback

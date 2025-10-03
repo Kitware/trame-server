@@ -65,12 +65,14 @@ class Translator:
         logger.info("Translator(prefix=%s)", prefix)
         self._prefix = prefix
         self._transl = {}
+        self._reverse_transl = {}
 
     def set_prefix(self, prefix):
         self._prefix = prefix
 
     def add_translation(self, key, translated_key):
         self._transl[key] = translated_key
+        self._reverse_transl[translated_key] = key
 
     def translate_key(self, key):
         # Reserved keys
@@ -85,11 +87,41 @@ class Translator:
 
         return key
 
+    def reverse_translate_key(self, translated_key):
+        # Reserved keys
+        if is_name_reserved(translated_key):
+            return translated_key
+
+        if translated_key in self._reverse_transl:
+            return self._reverse_transl[translated_key]
+
+        if self._prefix:
+            return translated_key.removeprefix(self._prefix)
+
+        return translated_key
+
     def translate_list(self, key_list):
         return [self.translate_key(v) for v in key_list]
 
     def translate_dict(self, key_dict):
         return {self.translate_key(k): v for k, v in key_dict.items()}
+
+    def reverse_translate_list(self, key_list):
+        return [self.reverse_translate_key(v) for v in key_list]
+
+    def reverse_translate_dict(self, key_dict):
+        d = {}
+
+        for key, value in key_dict.items():
+            reverse_key = self.reverse_translate_key(key)
+            translated_key = self.translate_key(reverse_key)
+
+            # If key != translated_key it means that this key is shadowed by something
+            # else in this state, so it should not be included in the translated dict
+            if key == translated_key:
+                d[reverse_key] = value
+
+        return d
 
     def translate_js_expression(self, state, expression):
         tokens = []
