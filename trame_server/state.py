@@ -308,7 +308,9 @@ class State:
                         if not inspect.iscoroutinefunction(callback):
                             callback = reload(callback)
 
-                    reverse_translated_state = translator.reverse_translate_dict(self._pushed_state)
+                    reverse_translated_state = translator.reverse_translate_dict(
+                        self._pushed_state
+                    )
                     coroutine = callback(**reverse_translated_state)
                     if inspect.isawaitable(coroutine):
                         asynchronous.create_task(coroutine)

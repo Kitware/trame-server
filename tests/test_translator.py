@@ -16,6 +16,7 @@ def func2():
 def func3():
     return 3
 
+
 def test_translator():
     a_translator = Translator()
     a_translator.add_translation("foo", "a_foo")
@@ -32,6 +33,16 @@ def test_translator():
     assert b_translator.translate_key("bar") == "b_bar"
     assert b_translator.reverse_translate_key("b_foo") == "foo"
     assert b_translator.reverse_translate_key("b_bar") == "bar"
+
+    c_translator = Translator()
+    c_translator.set_prefix("c_")
+    c_translator.add_translation("foo", "still_foo")
+
+    assert c_translator.translate_key("foo") == "still_foo"
+    assert c_translator.translate_key("bar") == "c_bar"
+    assert c_translator.reverse_translate_key("still_foo") == "foo"
+    assert c_translator.reverse_translate_key("c_foo") == "foo"
+    assert c_translator.reverse_translate_key("c_bar") == "bar"
 
 
 def test_state_translation():
@@ -301,7 +312,7 @@ def test_change_callback():
     a_state = State(internal=root_state)
     a_state.translator.add_translation("foo", "a_foo")
 
-    def on_a_foo_change(*args, **kwargs):
+    def on_a_foo_change(*_args, **kwargs):
         nonlocal test_passed
         assert "foo" in kwargs
         assert "a_foo" not in kwargs
@@ -324,7 +335,7 @@ def test_change_callback():
     b_state = State(internal=root_state)
     b_state.translator.set_prefix("b_")
 
-    def on_b_foo_change(*args, **kwargs):
+    def on_b_foo_change(*_args, **kwargs):
         nonlocal test_passed
         assert "foo" in kwargs
         assert "b_foo" not in kwargs

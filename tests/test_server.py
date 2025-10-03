@@ -109,7 +109,7 @@ def test_enable_module():
     def another_method():
         pass
 
-    assert server.state._change_callbacks["a"][0] == on_change
+    assert server.state._change_callbacks["a"][0][0] == on_change
     assert server.trigger_name(another_method) == "my_name"
     assert server.name == "test_enable_module"
 
