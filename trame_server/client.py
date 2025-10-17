@@ -192,6 +192,7 @@ class Client:
         self._session = None
         self._url = url
         self._config = {} if config is None else config
+        self._ready = asyncio.Future()
 
         # fake server
         self.hot_reload = hot_reload
@@ -214,22 +215,36 @@ class Client:
         async with aiohttp.ClientSession() as session:
             async with session.ws_connect(url) as ws:
                 self._session = WsLinkSession(ws)
-                self._state.ready()
                 self._session.register_subscription(
                     "trame.state.topic", self._on_state_update
                 )
                 self._connected = 2
                 task = asynchronous.create_task(self._session.listen())
-                await self._session.auth(**config)
+                auth_result = await self._session.auth(**config)
+                await auth_result
+                await self._init_state()
+                self._state.ready()
+                self._ready.set_result(auth_result.result())
                 await task
 
         self._session.clear_subscriptions()
         self._session = None
         self._connected = 0
+        self._ready = asyncio.Future()
 
     async def diconnect(self):
         if self._session:
             await self._session.close()
+
+    async def _init_state(self):
+        if self._session is None:
+            return
+
+        response = await self._session.call("trame.state.get")
+        remote_state = await response
+
+        for key, value in remote_state["state"].items():
+            self._state[key] = value
 
     # -----------------------------------------------------
     # Fake server for state
@@ -271,6 +286,10 @@ class Client:
     @property
     def connected(self):
         return self._connected
+
+    @property
+    def ready(self):
+        return self._ready
 
     @property
     def state(self):
