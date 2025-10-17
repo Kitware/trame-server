@@ -67,6 +67,7 @@ class State:
         self._state_listeners = share(
             internal, "_state_listeners", StateChangeHandler(self._change_callbacks)
         )
+        self._is_flushing = share(internal, "_is_flushing", {"value": False})
         self._parent_state = internal
         self._children_state = []
         self._ready_flag = ready
@@ -277,6 +278,10 @@ class State:
         if not self.is_ready:
             return None
 
+        if self._is_flushing["value"]:
+            return None
+
+        self._is_flushing["value"] = True
         keys = set()
         if len(self._pending_update):
             _keys = set(self._pending_update.keys())
@@ -320,6 +325,7 @@ class State:
                 # Check if state change from state listeners
                 _keys = set(self._pending_update.keys())
 
+        self._is_flushing["value"] = False
         return keys
 
     @property

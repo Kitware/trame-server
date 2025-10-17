@@ -9,12 +9,16 @@ import trame_server
 
 
 class FirstApp(TrameApp):
-    def __init__(self, server: trame_server.Server | str | None = None) -> None:
+    def __init__(
+        self,
+        server: trame_server.Server | str | None = None,
+        template_name: str = "main",
+    ) -> None:
         super().__init__(server)
 
         self.state.test = "first"
 
-        self._build_ui()
+        self._build_ui(template_name)
 
     @trigger("test")
     def test_trigger(self) -> None:
@@ -24,21 +28,25 @@ class FirstApp(TrameApp):
     def test_controller(self) -> None:
         print(self.state.test)
 
-    def _build_ui(self) -> None:
-        with VAppLayout(self.server, full_height=True), v3.VContainer(), v3.VCard(
-            title="This is the first app"
-        ):
+    def _build_ui(self, template_name) -> None:
+        with VAppLayout(
+            self.server, template_name=template_name, full_height=True
+        ), v3.VContainer(), v3.VCard(title="This is the first app"):
             v3.VBtn("Test Trigger", click="console.log(test); trame.trigger('test');")
             v3.VBtn("Test Controller", click=self.ctrl.test_controller)
 
 
 class SecondApp(TrameApp):
-    def __init__(self, server: trame_server.Server | str | None = None) -> None:
+    def __init__(
+        self,
+        server: trame_server.Server | str | None = None,
+        template_name: str = "main",
+    ) -> None:
         super().__init__(server)
 
         self.state.test = "second"
 
-        self._build_ui()
+        self._build_ui(template_name)
 
     @trigger("test")
     def trigger_test(self) -> None:
@@ -48,10 +56,10 @@ class SecondApp(TrameApp):
     def test_controller(self) -> None:
         print(self.state.test)
 
-    def _build_ui(self) -> None:
-        with VAppLayout(self.server, full_height=True), v3.VContainer(), v3.VCard(
-            title="This is the second app"
-        ):
+    def _build_ui(self, template_name) -> None:
+        with VAppLayout(
+            self.server, template_name=template_name, full_height=True
+        ), v3.VContainer(), v3.VCard(title="This is the second app"):
             v3.VBtn("Test Trigger", click="console.log(test); trame.trigger('test');")
             v3.VBtn("Test Controller", click=self.ctrl.test_controller)
 
@@ -70,10 +78,17 @@ class MainApp(TrameApp):
 
     def _build_ui(self) -> None:
         # Register routes
-        with RouterViewLayout(self.server, "/"):
-            FirstApp(self.server.create_child_server(prefix="first_route_"))
-        with RouterViewLayout(self.server, "/second"):
-            SecondApp(self.server.create_child_server(prefix="second_route_"))
+        first_layout = RouterViewLayout(self.server, "/")
+        second_layout = RouterViewLayout(self.server, "/second")
+
+        FirstApp(
+            self.server.create_child_server(prefix="first_route_"),
+            template_name=first_layout.template_name,
+        )
+        SecondApp(
+            self.server.create_child_server(prefix="second_route_"),
+            template_name=second_layout.template_name,
+        )
 
         with SinglePageLayout(self.server, full_height=True) as layout:
             with layout.toolbar:
