@@ -392,6 +392,22 @@ class Server:
                     `--trame-args="-p 8081 --server"`. Alternatively, the environment variable
                     `TRAME_ARGS` may be set instead.""",
         )
+        self._cli_parser.add_argument(
+            "--follow-symlinks",
+            dest="static_follow_symlinks",
+            help="""flag for allowing to follow symlinks that lead outside
+                    the static root directory, by default it's not allowed
+                    and HTTP/404 will be returned on access.
+                    Enabling follow_symlinks can be a security risk,
+                    and may lead to a directory transversal attack.
+                    You do NOT need this option to follow symlinks which point
+                    to somewhere else within the static directory, this option
+                    is only used to break out of the security sandbox.
+                    Enabling this option is highly discouraged, and only
+                    expected to be used for edge cases in a local development
+                    setting where remote users do not have access to the server.""",
+            action="store_true",
+        )
 
         CoreServer.add_arguments(self._cli_parser)
 
@@ -540,6 +556,7 @@ class Server:
         show_connection_info: bool = True,
         disable_logging: bool = False,
         backend: BackendType | None = None,
+        follow_symlinks: bool | None = None,
         exec_mode: ExecModeType = "main",
         timeout: int | None = None,
         host: str | None = None,
@@ -614,6 +631,9 @@ class Server:
 
         if backend is None:
             backend = os.environ.get("TRAME_BACKEND", "aiohttp")
+
+        if follow_symlinks is not None:
+            options.static_follow_symlinks = follow_symlinks
 
         if open_browser is None:
             open_browser = not os.environ.get("TRAME_SERVER", False)
