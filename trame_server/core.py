@@ -348,7 +348,10 @@ class Server:
         if self._cli_parser:
             return self._cli_parser
 
-        self._cli_parser = ArgumentParser(description="Kitware trame")
+        self._cli_parser = ArgumentParser(
+            description="Kitware trame",
+            allow_abbrev=False,
+        )
 
         # Trame specific args
         self._cli_parser.add_argument(
