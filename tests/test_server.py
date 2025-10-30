@@ -1,5 +1,7 @@
 import asyncio
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -123,6 +125,11 @@ def test_enable_module():
     # Can only be set once
     with pytest.raises(TypeError):
         server.client_type = "vue3"
+
+
+def test_cli_args_collision(pytestconfig: pytest.Config):
+    cli = pytestconfig.rootpath / "tests/data/test_cli.py"
+    subprocess.run([sys.executable, str(cli), "--f", "foo"], check=True)
 
 
 def test_cli():
