@@ -189,7 +189,10 @@ class CoreServer(ServerProtocol):
 
     @exportRpc("trame.error.client")
     def js_error(self, message):
-        print(f" JS Error => {message}")
+        if self.server.controller.on_error.exists():
+            self.server.controller.on_error(message)
+        else:
+            print(f" JS Error => {message}")
 
     # ---------------------------------------------------------------
 
