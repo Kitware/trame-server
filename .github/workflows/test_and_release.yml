@@ -62,7 +62,7 @@ jobs:
           coverage report -m
 
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v5.5.1
+        uses: codecov/codecov-action@v5.5.2
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -85,7 +85,7 @@ jobs:
 
       - name: Python Semantic Release
         id: release
-        uses: relekang/python-semantic-release@v10.5.2
+        uses: relekang/python-semantic-release@v10.5.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
