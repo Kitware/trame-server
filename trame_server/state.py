@@ -128,6 +128,10 @@ class State:
         else:
             self.__setitem__(key, value)
 
+    def __contains__(self, key):
+        key = self._translator.translate_key(key)
+        return key in self._pending_update or key in self._pushed_state
+
     def client_only(self, *_args):
         """
         Tag a given set of variable name(s) to be client only.
