@@ -1,6 +1,6 @@
 [project]
 name = "trame-server"
-version = "3.9.0"
+version = "3.10.0"
 description = "Internal server side implementation of trame"
 authors = [
     {name = "Kitware Inc."},
