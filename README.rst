@@ -58,6 +58,9 @@ and are prefixed with ``on_*``.
 * **on_client_exited**    : Linked to browser "beforeunload" event
 * **on_server_exited**    : Trame is exiting its event loop
 
+* **on_error**            : JS error forwarded (msg:str) on the python
+* **on_exception**        : Server exception occurred when interacting with the UI. The exception instance is provided as arg.
+
 * **on_server_reload**    : If callback registered it can be use to hot_reload methods like the UI.
 
 

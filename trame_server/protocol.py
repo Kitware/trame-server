@@ -94,6 +94,13 @@ class CoreServer(ServerProtocol):
             self.server._running_stage = 2
             self.server.state.ready()
             self.server.context.ready()
+
+            # Add on_server_exception
+            self.server.protocol.log_emitter.add_event_listener(
+                "exception", self.server.controller.on_exception.enable_empty()
+            )
+
+            # Trigger on_server_ready
             if self.server.controller.on_server_ready.exists():
                 self.server.controller.on_server_ready(**self.server.state.to_dict())
 
