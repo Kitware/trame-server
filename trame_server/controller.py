@@ -322,9 +322,12 @@ class ControllerFunction:
         self.funcs = set()
         self.task_funcs = set()
         self.funcs_once = set()
+        self.can_be_empty = False
 
     def __call__(self, *args, **kwargs):
         if self.func is None and len(self.funcs) + len(self.task_funcs) == 0:
+            if self.can_be_empty:
+                return None
             raise FunctionNotImplementedError(self.name)
 
         copy_list = list(self.funcs) + list(self.funcs_once)
@@ -440,6 +443,16 @@ class ControllerFunction:
         if self.func is not None:
             return True
         return len(self.funcs) + len(self.task_funcs) > 0
+
+    def enable_empty(self, value=True):
+        """
+        Enable entry to be empty.
+        Useful for events when you don't know if someone will be listening.
+
+        :return: self so it can be used inline like a builder.
+        """
+        self.can_be_empty = value
+        return self
 
     @property
     def hot_reload(self):
