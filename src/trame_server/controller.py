@@ -55,7 +55,7 @@ class Controller:
 
     def __init__(self, translator=None, internal=None, hot_reload=False):
         super().__setattr__("__trame_hot_reload__", hot_reload)
-        super().__setattr__("_translator", translator if translator else Translator())
+        super().__setattr__("_translator", translator or Translator())
         super().__setattr__("_triggers", share(internal, "_triggers", {}))
         super().__setattr__(
             "_triggers_fn2name", share(internal, "_triggers_fn2name", {})
@@ -358,7 +358,7 @@ class ControllerFunction:
         # Figure out return
         if self.func is None:
             return results
-        if len(copy_list):
+        if copy_list:
             return [result, *results]
         if len(self.task_funcs):
             return results

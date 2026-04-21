@@ -11,7 +11,7 @@ from trame_server.utils import asynchronous
 
 from .state import State
 
-MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE", 4194304))
+MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE") or 4194304)
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class WsLinkSession:
             return
 
         msg_id = payload.get("id")
-        msg_type, msg_topic, msg_idx = msg_id.split(":")
+        msg_type, msg_topic, _ = msg_id.split(":")
         future = self.in_flight_rpc.get(msg_id)
 
         # Error
@@ -227,7 +227,7 @@ class Client:
         self._session = None
         self._connected = 0
 
-    async def diconnect(self):
+    async def disconnect(self):
         if self._session:
             await self._session.close()
 

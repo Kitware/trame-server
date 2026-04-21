@@ -61,7 +61,7 @@ class Server:
     ) -> None:
         # Core internal variables
         self._parent_server = parent_server
-        self._translator = translator if translator else Translator()
+        self._translator = translator or Translator()
         self._name = share(parent_server, "_name", name)
         self._options = share(parent_server, "_options", options)
         self._client_type = share(parent_server, "_client_type", None)
@@ -86,16 +86,16 @@ class Server:
         )
         if parent_server is None:
             self._options["log_network"] = self._options.get(
-                "log_network", os.environ.get("TRAME_LOG_NETWORK", False)
+                "log_network", os.environ.get("TRAME_LOG_NETWORK")
             )
             self._options["ws_max_msg_size"] = self._options.get(
-                "ws_max_msg_size", os.environ.get("TRAME_WS_MAX_MSG_SIZE", 10000000)
+                "ws_max_msg_size", os.environ.get("TRAME_WS_MAX_MSG_SIZE") or 10000000
             )
             self._options["ws_heart_beat"] = self._options.get(
-                "ws_heart_beat", os.environ.get("TRAME_WS_HEART_BEAT", 30)
+                "ws_heart_beat", os.environ.get("TRAME_WS_HEART_BEAT") or 30
             )
             self._options["desktop_debug"] = self._options.get(
-                "desktop_debug", os.environ.get("TRAME_DESKTOP_DEBUG", False)
+                "desktop_debug", os.environ.get("TRAME_DESKTOP_DEBUG")
             )
             # reset default wslink startup message
             os.environ["WSLINK_READY_MSG"] = ""
@@ -143,7 +143,7 @@ class Server:
         self._ui = share(parent_server, "_ui", VirtualNodeManager(self, vn_constructor))
 
     def create_child_server(self, translator=None, prefix=None) -> Server:
-        translator = translator if translator else Translator(prefix=prefix)
+        translator = translator or Translator(prefix=prefix)
         return Server(translator=translator, parent_server=self)
 
     # -------------------------------------------------------------------------
@@ -578,7 +578,7 @@ class Server:
         :param port: A port number to listen to. When 0 is provided
                      the system will use a random open port.
         :param thread: If the server run in a thread which means
-                       we should disable interuption listeners
+                       we should disable interruption listeners
         :param open_browser: Should we open the system browser with app url.
                              Using the `--server` command line argument is
                              similar to setting it to False.
@@ -618,7 +618,7 @@ class Server:
 
         # Try to bind client if none were added
         if self._www is None:
-            from trame_client import module
+            from trame_client import module  # noqa: PLC0415
 
             self.enable_module(module)
 
@@ -639,7 +639,7 @@ class Server:
             options.static_follow_symlinks = follow_symlinks
 
         if open_browser is None:
-            open_browser = not os.environ.get("TRAME_SERVER", False)
+            open_browser = not os.environ.get("TRAME_SERVER")
 
         if options.host == "localhost":
             if host is None:
@@ -659,7 +659,7 @@ class Server:
             options.nosignalhandlers = True
 
         if options.banner:
-            from .utils.banner import print_banner
+            from .utils.banner import print_banner  # noqa: PLC0415
 
             self.controller.on_server_ready.add(print_banner)
 
@@ -667,7 +667,7 @@ class Server:
             exec_mode = "desktop"
 
         if exec_mode == "desktop":
-            from .utils.desktop import start_browser
+            from .utils.desktop import start_browser  # noqa: PLC0415
 
             options.port = 0
             exec_mode, show_connection_info, open_browser = "main", False, False
@@ -679,7 +679,7 @@ class Server:
         reverse_url = getattr(options, "reverse_url", None)
 
         if not reverse_url and show_connection_info and exec_mode != "task":
-            from .utils.server import print_informations
+            from .utils.server import print_informations  # noqa: PLC0415
 
             self.controller.on_server_ready.add(lambda **_: print_informations(self))
 
@@ -689,7 +689,7 @@ class Server:
             and exec_mode != "task"
             and not options.server
         ):
-            from .utils.browser import open_browser
+            from .utils.browser import open_browser  # noqa: PLC0415
 
             self.controller.on_server_ready.add(lambda **_: open_browser(self))
 

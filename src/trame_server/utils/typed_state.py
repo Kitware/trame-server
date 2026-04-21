@@ -39,6 +39,9 @@ class _SerializationFailure:
     def __eq__(self, other):
         return isinstance(other, _SerializationFailure)
 
+    def __hash__(self):
+        return hash(self.reason)
+
 
 class IStateEncoderDecoder(ABC):
     """

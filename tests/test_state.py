@@ -462,13 +462,11 @@ def test_given_nested_no_keys_when_any_key_modified_inside_context_then_listener
     def on_change(**_):
         mock()
 
-    with (
-        state.suppress_change_listeners("d"),
-        state.suppress_change_listeners(),
-        state.suppress_change_listeners("e"),
-    ):
-        state.a = 2
-        state.b = 3
+    with state.suppress_change_listeners("d"):
+        with state.suppress_change_listeners():
+            with state.suppress_change_listeners("e"):
+                state.a = 2
+                state.b = 3
 
     state.flush()
     mock.assert_not_called()

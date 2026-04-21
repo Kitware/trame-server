@@ -38,7 +38,7 @@ async def client(server):
         yield client
     finally:
         await asyncio.sleep(0.1)
-        await client.diconnect()
+        await client.disconnect()
 
 
 @pytest.mark.asyncio
