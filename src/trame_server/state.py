@@ -182,7 +182,7 @@ class State:
     ):
         self._push_state_fn = commit_fn
         self._hot_reload = hot_reload
-        self._translator = translator if translator else Translator()
+        self._translator = translator or Translator()
         self._modified_keys = share(internal, "_modified_keys", set())
         self._change_callbacks = share(internal, "_change_callbacks", {})
         self._pending_update = share(internal, "_pending_update", {})

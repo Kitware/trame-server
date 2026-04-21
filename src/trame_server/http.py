@@ -49,6 +49,6 @@ class HttpHeader:
 
     def apply(self):
         """Only apply on aiohttp backend"""
-        from wslink.backends import aiohttp
+        from wslink.backends import aiohttp  # noqa: PLC0415
 
         aiohttp.HTTP_HEADERS = self.headers
