@@ -34,15 +34,23 @@ dev = [
 ]
 
 [build-system]
-requires = ['setuptools']
-build-backend = 'setuptools.build_meta'
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools.packages.find]
-where = ["."]
+[tool.hatch.build]
+include = [
+  "/src/trame_server/**/*.py",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trame_server"]
 
 [tool.semantic_release]
 version_toml = [
     "pyproject.toml:project.version",
+]
+version_variables = [
+    "src/trame_server/__init__.py:__version__",
 ]
 build_command = """
   python -m venv .venv
@@ -50,6 +58,10 @@ build_command = """
   pip install -U pip build
   python -m build .
 """
+
+[tool.semantic_release.publish]
+dist_glob_patterns = ["dist/*"]
+upload_to_vcs_release = true
 
 [tool.pytest.ini_options]
 log_cli_level = "INFO"
