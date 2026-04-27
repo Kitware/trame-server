@@ -1,5 +1,6 @@
 import asyncio
 import weakref
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -19,12 +20,32 @@ class FakeServer:
     def add_event(self, content, type="msg"):
         self._events.append({"type": type, "content": content})
 
+    @property
+    def pushed_state(self) -> dict:
+        pushed = {}
+        for e in self._events:
+            if e["type"] == "push":
+                pushed.update(e["content"])
+        return pushed
+
     def __repr__(self) -> str:
         lines = [""]
         for line_nb, entry in enumerate(self._events):
             lines.append(f"{line_nb:6} {entry.get('type'):5}: {entry.get('content')}")
         lines.append("")
         return "\n".join(lines)
+
+
+@pytest.fixture
+def server():
+    return FakeServer()
+
+
+@pytest.fixture
+def state(server):
+    _state = State(commit_fn=server._push_state)
+    _state.ready()
+    return _state
 
 
 def test_minimum_change_detection():
@@ -375,3 +396,243 @@ def test_weakref():
     state.a = 3
     state.flush()
     assert Obj.method_call_count == 1
+
+
+def test_given_explicit_keys_when_modified_inside_context_then_listeners_are_not_called(
+    state, server
+):
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(**_):
+        mock()
+
+    with state.suppress_change_listeners("a"):
+        state.a = 2
+
+    state.flush()
+    mock.assert_not_called()
+    assert server.pushed_state["a"] == 2
+
+
+def test_given_explicit_keys_when_flushing_inside_context_then_listeners_are_not_called(
+    state, server
+):
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(**_):
+        mock()
+
+    with state.suppress_change_listeners("a"):
+        for i in range(3):
+            state.a = i
+            state.flush()
+
+    state.flush()
+    mock.assert_not_called()
+    assert server.pushed_state["a"] == 2
+
+
+def test_given_no_keys_when_any_key_modified_inside_context_then_listeners_are_not_called(
+    state, server
+):
+    mock = MagicMock()
+
+    @state.change("a", "b")
+    def on_change(**_):
+        mock()
+
+    with state.suppress_change_listeners():
+        state.a = 2
+        state.b = 3
+
+    state.flush()
+    mock.assert_not_called()
+    assert server.pushed_state["a"] == 2
+    assert server.pushed_state["b"] == 3
+
+
+def test_given_nested_no_keys_when_any_key_modified_inside_context_then_listeners_are_not_called(
+    state, server
+):
+    mock = MagicMock()
+
+    @state.change("a", "b")
+    def on_change(**_):
+        mock()
+
+    with (
+        state.suppress_change_listeners("d"),
+        state.suppress_change_listeners(),
+        state.suppress_change_listeners("e"),
+    ):
+        state.a = 2
+        state.b = 3
+
+    state.flush()
+    mock.assert_not_called()
+    assert server.pushed_state["a"] == 2
+    assert server.pushed_state["b"] == 3
+
+
+def test_given_modified_keys_when_context_exits_then_keys_are_marked_clean_in_state(
+    state,
+):
+    with state.suppress_change_listeners("a"):
+        state.a = 2
+
+    state.flush()
+    assert not state.is_dirty("a")
+
+
+def test_given_multiple_nested_suppress_contexts_when_exiting_then_all_keys_are_synced_correctly(
+    state, server
+):
+    mock = MagicMock()
+
+    @state.change("a", "b")
+    def on_change(**_):
+        mock()
+
+    with state.suppress_change_listeners("a"):
+        state.a = 2
+        state.flush()
+
+        with state.suppress_change_listeners("b"):
+            state.b = 3
+            state.flush()
+
+    state.flush()
+    mock.assert_not_called()
+    assert server.pushed_state["a"] == 2
+    assert server.pushed_state["b"] == 3
+
+
+def test_given_nested_suppress_with_same_key_keeps_suppression_in_outer_context(
+    state, server
+):
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(**_):
+        mock()
+
+    with state.suppress_change_listeners("a"):
+        with state.suppress_change_listeners("a"):
+            state.a = 3
+            state.flush()
+
+        state.a = 2
+        state.flush()
+
+    state.flush()
+    mock.assert_not_called()
+    assert server.pushed_state["a"] == 2
+
+
+def test_given_mixed_updates_when_some_are_suppressed_then_only_normal_updates_trigger_listeners(
+    state,
+):
+    mock_a = MagicMock()
+    mock_b = MagicMock()
+
+    @state.change("a")
+    def on_a(**_):
+        mock_a()
+
+    @state.change("b")
+    def on_b(b, **_):
+        mock_b(b)
+
+    with state.suppress_change_listeners("a"):
+        state.a = 2
+        state.b = 3
+
+    state.flush()
+    mock_a.assert_not_called()
+    mock_b.assert_called_once_with(3)
+
+
+def test_given_exception_in_context_when_raised_then_cleanup_logic_still_executes(
+    state, server
+):
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(a, **_):
+        mock(a)
+
+    try:
+        with state.suppress_change_listeners("a"):
+            raise ValueError()
+    except ValueError:
+        pass
+
+    state.a = 2
+    state.flush()
+    assert server.pushed_state["a"] == 2
+    mock.assert_called_once_with(2)
+
+
+def test_given_namespaced_state_when_using_suppress_context_then_keys_are_correctly_translated(
+    server,
+):
+    translator = Translator(prefix="test_")
+    state = State(translator=translator, commit_fn=server._push_state)
+    state.ready()
+
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(**_):
+        mock()
+
+    with state.suppress_change_listeners("a"):
+        state.a = 2
+
+    state.flush()
+    mock.assert_not_called()
+    assert server.pushed_state["test_a"] == 2
+
+
+def test_given_change_callback_when_it_modifies_state_suppressed_then_recursion_is_avoided(
+    state, server
+):
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_a(a, **_):
+        with state.suppress_change_listeners("b"):
+            state.b = a
+            state.flush()
+
+    @state.change("b")
+    def on_b(**_):
+        mock()
+
+    state.a = 2
+    state.flush()
+
+    assert not state.is_dirty("b")
+    assert server.pushed_state["b"] == 2
+    mock.assert_not_called()
+
+
+def test_given_chain_supress_sequence_correctly_suppress_scoped_listeners(state):
+    mock = MagicMock()
+
+    @state.change("a", "b", "c")
+    def on_a(**kwargs):
+        mock(**kwargs)
+
+    with state.suppress_change_listeners():
+        state.a = 1
+        state.b = 2
+
+    with state.suppress_change_listeners("c"):
+        state.a = 42
+        state.c = 3
+
+    state.flush()
+    mock.assert_called_once_with(a=42, b=2, c=3)

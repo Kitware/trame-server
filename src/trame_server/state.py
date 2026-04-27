@@ -1,6 +1,7 @@
 import inspect
 import logging
 import weakref
+from collections import deque
 from contextlib import contextmanager
 
 from .utils import asynchronous, is_dunder, is_private, share
@@ -63,6 +64,66 @@ class StateChangeHandler:
         return iter(list(self._currents))
 
 
+class _SuppressListenersChangeStack:
+    """
+    Helper class to handle change listener keys to suppress and which to trigger.
+    """
+
+    def __init__(self):
+        self._deque: deque[set[str]] = deque()
+        self._suppressed_keys: set[str] | None = None
+        self._listener_keys: set[str] = set()
+
+    def on_pending_key_added(self, key: str) -> None:
+        if not self._is_suppressed(key):
+            self._listener_keys.add(key)
+
+    def on_pending_key_removed(self, key: str) -> None:
+        self._listener_keys.discard(key)
+
+    def push(self, *keys: str) -> None:
+        self._deque.append(set(keys))
+        self._update_suppressed_keys()
+
+    def pop(self) -> None:
+        if not self._deque:
+            return
+
+        self._deque.pop()
+        self._update_suppressed_keys()
+
+    def clear(self) -> None:
+        self._listener_keys = set()
+
+    def get_change_listener_keys(self) -> set[str]:
+        return self._listener_keys
+
+    def _is_suppressed(self, key: str) -> bool:
+        if self._suppressed_keys is None:
+            return False
+        if self._suppressed_keys == set():
+            return True
+        return key in self._suppressed_keys
+
+    def _update_suppressed_keys(self) -> None:
+        """
+        Updates the suppressed keys set.
+        If the stack is empty, the suppressed keys will be reset to None.
+        If the stack contains one empty set (catch all) the suppressed set will be updated to an empty set (catch all).
+        Otherwise, the suppressed keys will represent the union of the stack's sets.
+        """
+        if not self._deque:
+            self._suppressed_keys = None
+            return
+
+        self._suppressed_keys = set()
+        for d_set in self._deque:
+            if d_set == set():
+                self._suppressed_keys.clear()
+                return
+            self._suppressed_keys.update(d_set)
+
+
 class State:
     """
     Flexible dictionary managing a server shared state.
@@ -100,6 +161,8 @@ class State:
         if internal:
             internal._children_state.append(self)
 
+        self._suppress_change_stack = _SuppressListenersChangeStack()
+
     @property
     def is_ready(self) -> bool:
         """Return True is the instance is ready for synchronization, False otherwise."""
@@ -127,9 +190,11 @@ class State:
         if key in self._pushed_state:
             if value == self._pushed_state[key]:
                 self._pending_update.pop(key, None)
+                self._suppress_change_stack.on_pending_key_removed(key)
                 return
 
         self._pending_update[key] = value
+        self._suppress_change_stack.on_pending_key_added(key)
 
     def __getattr__(self, key):
         if is_dunder(key):
@@ -240,6 +305,7 @@ class State:
         This will prevent change listener(s) to react or the client
         to be aware of any change.
         """
+        self._suppress_change_stack.clear()
         _args = self._translator.translate_list(_args)
         for key in _args:
             if key in self._pending_update:
@@ -252,6 +318,9 @@ class State:
         for key in _dict:
             if _dict[key] == self._pushed_state.get(key, TRAME_NON_INIT_VALUE):
                 self._pending_update.pop(key, None)
+                self._suppress_change_stack.on_pending_key_removed(key)
+            else:
+                self._suppress_change_stack.on_pending_key_added(key)
 
     @property
     def modified_keys(self):
@@ -300,7 +369,13 @@ class State:
         self._pending_update.clear()
 
         # Execute state listeners
-        self._state_listeners.add_all(_keys)
+        self._state_listeners.add_all(
+            self._suppress_change_stack.get_change_listener_keys()
+        )
+
+        # Clear change keys before triggering listeners as listeners can trigger modifications in chain
+        self._suppress_change_stack.clear()
+
         for fn, translator in self._state_listeners:
             if isinstance(fn, weakref.WeakMethod):
                 callback = fn()
@@ -387,3 +462,21 @@ class State:
             return func
 
         return register_change_callback
+
+    @contextmanager
+    def suppress_change_listeners(self, *keys: str):
+        """
+        Suppresses input keys from triggering a state.change callback event in the scope of the context manager.
+        Suppression only impacts the server and any state changed will be properly sent to the client.
+
+        If called without arguments, suppress_change_listeners will suppress all listener changes in its scope.
+        When used in a child state, the input key should be the untranslated state key.
+        """
+
+        self._suppress_change_stack.push(
+            *[self.translator.translate_key(k) for k in keys]
+        )
+        try:
+            yield
+        finally:
+            self._suppress_change_stack.pop()
