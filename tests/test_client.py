@@ -1,16 +1,26 @@
 import asyncio
+from unittest.mock import MagicMock
 
 import pytest
+import pytest_asyncio
 from trame.app import asynchronous, get_client, get_server
 
 
-@pytest.mark.asyncio
-async def test_client_connection():
+@pytest_asyncio.fixture
+async def server():
     server = get_server("test_client_connection")
     server.start(exec_mode="task", port=0)
     assert await server.ready
     assert server.running
+    try:
+        yield server
+    finally:
+        await asyncio.sleep(0.5)
+        await server.stop()
 
+
+@pytest_asyncio.fixture
+async def client(server):
     url = f"ws://localhost:{server.port}/ws"
     client = get_client(url)
     asynchronous.create_task(client.connect(secret="wslink-secret"))
@@ -22,9 +32,17 @@ async def test_client_connection():
 
     # should be a noop
     await client.connect()
-
     assert client.connected == 2
 
+    try:
+        yield client
+    finally:
+        await asyncio.sleep(0.1)
+        await client.diconnect()
+
+
+@pytest.mark.asyncio
+async def test_client_connection(server, client):
     @client.change("a")
     def on_change(a, **_):
         assert a == 2
@@ -53,7 +71,20 @@ async def test_client_connection():
     assert await client.call_trigger("add", [1, 2, 3]) == 6
     assert await client.call_trigger("add") == 0
 
+
+@pytest.mark.asyncio
+async def test_given_suppress_listeners_sends_updates_to_client_only(server, client):
+    state_key = "my_state_key"
+    server.state.setdefault(state_key, 3)
+
+    on_call = MagicMock()
+    server.state.change(state_key)(on_call)
+    with server.state.suppress_change_listeners(state_key):
+        server.state[state_key] = 42
+        server.state.flush()
+
+    await server.network_completion
     await asyncio.sleep(0.1)
-    await client.diconnect()
-    await asyncio.sleep(0.5)
-    await server.stop()
+
+    assert client.state[state_key] == 42
+    on_call.assert_not_called()
