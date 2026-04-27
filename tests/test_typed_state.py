@@ -545,3 +545,16 @@ def test_encode_decode_supports_collections_of_nested_dataclass(state):
             }
         },
     }
+
+
+def test_can_supress_change_listeners(state):
+    mock = MagicMock()
+
+    typed_state = TypedState(state, MyBiggerData)
+    typed_state.bind_changes({typed_state.name.my_other_data: mock})
+
+    with typed_state.suppress_change_listeners():
+        typed_state.data.my_other_data.a = 53
+
+    state.flush()
+    mock.assert_not_called()
