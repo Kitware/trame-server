@@ -101,7 +101,12 @@ def test_enable_module():
 
     assert server.state.a == 1
     assert server.state.b == 2
-    assert server.serve == {"data": "/tmp"}
+    serve_conf = {
+        k: v
+        for k, v in server.serve.items()
+        if not k.startswith("__trame_client_external_scripts")
+    }
+    assert serve_conf == {"data": "/tmp"}
 
     @server.change("a")
     def on_change(**_):
