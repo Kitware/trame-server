@@ -57,7 +57,7 @@ jobs:
           pip install -r tests/requirements.txt
           # Run the tests with coverage so we get a coverage report too
           pip install coverage
-          coverage run --omit "*/tests/*" --source . -m pytest .
+          coverage run --omit "*/tests/*" --source ./src -m pytest .
           # Print the coverage report
           coverage report -m
 
