@@ -698,3 +698,30 @@ def test_keys_marked_clean_in_suppress_does_not_trigger_listener_changes(state):
 
     state.flush()
     mock.assert_not_called()
+
+
+def test_state_change_listeners_are_triggered_in_modified_order(state):
+    keys = [f"k_{i}" for i in range(10)]
+    recorded = []
+
+    def create_listener(k):
+        def on_change(**_):
+            recorded.append(k)
+
+        return on_change
+
+    for key in keys:
+        state.change(key)(create_listener(key))
+
+    for i_trial in range(1000):
+        recorded.clear()
+
+        for key in keys:
+            state[key] = i_trial
+
+        state.flush()
+
+        _assert_msg = (
+            f"Order mismatch at iteration {i_trial}: expected {keys}, got {recorded}"
+        )
+        assert recorded == keys, _assert_msg

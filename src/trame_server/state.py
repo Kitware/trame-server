@@ -3,6 +3,7 @@ import logging
 import weakref
 from collections import deque
 from contextlib import contextmanager
+from typing import Any, Iterable, Iterator
 
 from .utils import asynchronous, is_dunder, is_private, share
 from .utils.hot_reload import reload
@@ -43,10 +44,44 @@ class StateStatus:
             self.flushing = False
 
 
+class _OrderedSet:
+    """
+    Lightweight ordered set implementation based on dict to preserve insertion order
+    without external dependencies.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        self._data: dict[Any, None] = {}
+        for arg in args:
+            self.add(arg)
+
+    def __bool__(self) -> bool:
+        return bool(self._data)
+
+    def __contains__(self, key: Any) -> bool:
+        return key in self._data
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self._data)
+
+    def add(self, key: Any) -> None:
+        self._data[key] = None
+
+    def clear(self) -> None:
+        self._data.clear()
+
+    def discard(self, key: Any) -> None:
+        self._data.pop(key, None)
+
+    def update(self, iterable: Iterable[Any]) -> None:
+        for item in iterable:
+            self.add(item)
+
+
 class StateChangeHandler:
     def __init__(self, listeners):
         self._all_listeners = listeners
-        self._currents = set()
+        self._currents = _OrderedSet()
 
     def add(self, key):
         if key in self._all_listeners:
@@ -70,9 +105,9 @@ class _SuppressListenersChangeStack:
     """
 
     def __init__(self):
-        self._deque: deque[set[str]] = deque()
-        self._suppressed_keys: set[str] | None = None
-        self._listener_keys: set[str] = set()
+        self._deque: deque[_OrderedSet] = deque()
+        self._suppressed_keys: _OrderedSet | None = None
+        self._listener_keys: _OrderedSet = _OrderedSet()
 
     def on_pending_key_added(self, key: str) -> None:
         if not self._is_suppressed(key):
@@ -82,7 +117,7 @@ class _SuppressListenersChangeStack:
         self._listener_keys.discard(key)
 
     def push(self, *keys: str) -> None:
-        self._deque.append(set(keys))
+        self._deque.append(_OrderedSet(*keys))
         self._update_suppressed_keys()
 
     def pop(self) -> None:
@@ -93,15 +128,15 @@ class _SuppressListenersChangeStack:
         self._update_suppressed_keys()
 
     def clear(self) -> None:
-        self._listener_keys = set()
+        self._listener_keys = _OrderedSet()
 
-    def get_change_listener_keys(self) -> set[str]:
+    def get_change_listener_keys(self) -> _OrderedSet:
         return self._listener_keys
 
     def _is_suppressed(self, key: str) -> bool:
         if self._suppressed_keys is None:
             return False
-        if self._suppressed_keys == set():
+        if not self._suppressed_keys:
             return True
         return key in self._suppressed_keys
 
@@ -116,9 +151,9 @@ class _SuppressListenersChangeStack:
             self._suppressed_keys = None
             return
 
-        self._suppressed_keys = set()
+        self._suppressed_keys = _OrderedSet()
         for d_set in self._deque:
-            if d_set == set():
+            if not d_set:
                 self._suppressed_keys.clear()
                 return
             self._suppressed_keys.update(d_set)
