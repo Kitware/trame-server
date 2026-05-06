@@ -298,6 +298,7 @@ class State:
         _args = self._translator.translate_list(_args)
         for key in _args:
             self._pending_update.setdefault(key, self._pushed_state.get(key))
+            self._suppress_change_stack.on_pending_key_added(key)
 
     def clean(self, *_args):
         """
@@ -310,6 +311,7 @@ class State:
         for key in _args:
             if key in self._pending_update:
                 self._pushed_state[key] = self._pending_update.pop(key)
+                self._suppress_change_stack.on_pending_key_removed(key)
 
     def update(self, _dict):
         """Update the current state dict with the provided one"""

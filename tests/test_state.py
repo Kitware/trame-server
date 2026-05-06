@@ -636,3 +636,65 @@ def test_given_chain_supress_sequence_correctly_suppress_scoped_listeners(state)
 
     state.flush()
     mock.assert_called_once_with(a=42, b=2, c=3)
+
+
+def test_keys_marked_dirty_triggers_listener_changes(state):
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(a, **_):
+        mock(a)
+
+    state.a = 1
+    state.flush()
+    mock.reset_mock()
+
+    state.dirty("a")
+    state.flush()
+    mock.assert_called_once_with(1)
+
+
+def test_keys_marked_dirty_in_suppress_does_not_trigger_listener_changes(state):
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(a, **_):
+        mock(a)
+
+    state.a = 1
+    state.flush()
+    mock.reset_mock()
+
+    with state.suppress_change_listeners("a"):
+        state.dirty("a")
+
+    state.flush()
+    mock.assert_not_called()
+
+
+def test_keys_marked_clean_does_not_trigger_listener_changes(state):
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(a, **_):
+        mock(a)
+
+    state.a = 2
+    state.clean("a")
+    state.flush()
+    mock.assert_not_called()
+
+
+def test_keys_marked_clean_in_suppress_does_not_trigger_listener_changes(state):
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(a, **_):
+        mock(a)
+
+    state.a = 2
+    with state.suppress_change_listeners("a"):
+        state.clean("a")
+
+    state.flush()
+    mock.assert_not_called()
