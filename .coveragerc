@@ -1,2 +1,11 @@
 [run]
 omit = *docs*, *tests*, setup.py
+source = trame_server
+
+[paths]
+source =
+    src/trame_server
+    */site-packages/trame_server
+
+[report]
+show_missing = True

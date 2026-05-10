@@ -53,13 +53,8 @@ jobs:
 
       - name: Install and Run Tests
         run: |
-          pip install -e ".[dev]"
-          pip install -r tests/requirements.txt
-          # Run the tests with coverage so we get a coverage report too
-          pip install coverage
-          coverage run --omit "*/tests/*" --source ./src -m pytest .
-          # Print the coverage report
-          coverage report -m
+          pip install ".[dev]"
+          pytest --cov
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v6.0.0

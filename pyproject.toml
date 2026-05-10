@@ -31,6 +31,7 @@ dev = [
     "ruff",
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
     "nox",
     "trame",
 ]
