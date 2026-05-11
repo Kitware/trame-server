@@ -219,7 +219,7 @@ def test_server_start_sync():
         }
     )
     server.state.a = b"sdkfjhvlskdjhf"
-    server.start(timeout=1, open_browser=False)
+    server.start(timeout=1, open_browser=False, port=0)
 
 
 def test_ui():

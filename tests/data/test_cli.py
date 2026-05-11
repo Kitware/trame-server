@@ -9,7 +9,7 @@ def main():
     parser.parse_known_args()
 
     server = get_server("test_cli")
-    server.start(timeout=1, open_browser=False)
+    server.start(timeout=1, open_browser=False, port=0)
 
 
 if __name__ == "__main__":
