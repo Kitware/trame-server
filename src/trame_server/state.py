@@ -296,6 +296,8 @@ class State:
         key = self._translator.translate_key(key)
         if key in self._pushed_state:
             return self._pushed_state[key]
+
+        self._suppress_change_stack.on_pending_key_added(key)
         return self._pending_update.setdefault(key, value)
 
     def is_dirty(self, *_args):
