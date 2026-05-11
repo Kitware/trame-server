@@ -552,6 +552,11 @@ def test_can_supress_change_listeners(state):
 
     typed_state = TypedState(state, MyBiggerData)
     typed_state.bind_changes({typed_state.name.my_other_data: mock})
+    state.flush()
+
+    # Typed state definition sets defaults at creation.
+    # Reset mock to only check later mutation.
+    mock.reset_mock()
 
     with typed_state.suppress_change_listeners():
         typed_state.data.my_other_data.a = 53
