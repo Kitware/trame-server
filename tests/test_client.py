@@ -75,7 +75,6 @@ async def test_client_connection(server, client):
 @pytest.mark.asyncio
 async def test_given_suppress_listeners_sends_updates_to_client_only(server, client):
     state_key = "my_state_key"
-    server.state.setdefault(state_key, 3)
 
     on_call = MagicMock()
     server.state.change(state_key)(on_call)

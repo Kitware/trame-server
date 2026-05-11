@@ -723,3 +723,18 @@ def test_state_change_listeners_are_triggered_in_modified_order(state):
             f"Order mismatch at iteration {i_trial}: expected {keys}, got {recorded}"
         )
         assert recorded == keys, _assert_msg
+
+
+def test_setdefault_trigger_change_on_ready():
+    state = State()
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(a, **_):
+        mock(a)
+
+    state.setdefault("a", 1)
+    mock.assert_not_called()
+
+    state.ready()
+    mock.assert_called_once_with(1)
