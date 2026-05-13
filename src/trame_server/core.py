@@ -747,8 +747,10 @@ class Server:
                         self.controller.on_server_exited(**self.state.to_dict())
                 except asyncio.CancelledError:
                     pass  # Task cancellation should not be logged as an error.
-                except Exception:  # pylint: disable=broad-except
+                except Exception as e:  # pylint: disable=broad-except
                     logging.exception("Exception raised by task = %r", task)
+                    if not self.ready.done():
+                        self.ready.set_exception(e)
 
             task.add_done_callback(on_done)
 
