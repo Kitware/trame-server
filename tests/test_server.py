@@ -225,3 +225,23 @@ def test_server_start_sync():
 def test_ui():
     server = get_server("test_ui")
     server.ui.vnode  # noqa: B018
+
+
+@pytest.mark.asyncio
+async def test_server_ready_forwards_exceptions_in_ready_future():
+    server_1 = get_server("test_ready_exception_forwarding_1")
+    server_1.start(exec_mode="task", port=0)
+    await server_1.ready
+
+    server_2 = get_server("test_ready_exception_forwarding_2")
+    server_2.start(exec_mode="task", port=server_1.port)
+    with pytest.raises(OSError, match="error while attempting to bind on address"):
+        await server_2.ready
+
+
+@pytest.mark.asyncio
+async def test_server_task_cancel_doesnt_hang_ready_future():
+    server = get_server("test_cancel")
+    task = server.start(exec_mode="task", port=0)
+    task.cancel()
+    await asyncio.wait_for(server.ready, timeout=1)

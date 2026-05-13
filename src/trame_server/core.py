@@ -475,6 +475,15 @@ class Server:
 
         return self._running_future
 
+    def _resolve_ready_future(self, result=None, exception=None) -> None:
+        if self.ready.done():
+            return
+
+        if exception:
+            self.ready.set_exception(exception)
+        else:
+            self.ready.set_result(result)
+
     # -------------------------------------------------------------------------
     # API for network handling
     # -------------------------------------------------------------------------
@@ -746,9 +755,10 @@ class Server:
                     if self.controller.on_server_exited.exists():
                         self.controller.on_server_exited(**self.state.to_dict())
                 except asyncio.CancelledError:
-                    pass  # Task cancellation should not be logged as an error.
-                except Exception:  # pylint: disable=broad-except
+                    self._resolve_ready_future(result=False)
+                except Exception as e:  # pylint: disable=broad-except
                     logging.exception("Exception raised by task = %r", task)
+                    self._resolve_ready_future(exception=e)
 
             task.add_done_callback(on_done)
 
