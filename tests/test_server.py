@@ -3,12 +3,15 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from trame.app import get_server
 from trame.modules import www
 from wslink import register as export_rpc
 from wslink.websocket import LinkProtocol
+
+from trame_server.protocol import CoreServer
 
 
 @pytest.mark.asyncio
@@ -225,3 +228,20 @@ def test_server_start_sync():
 def test_ui():
     server = get_server("test_ui")
     server.ui.vnode  # noqa: B018
+
+
+@pytest.mark.asyncio
+async def test_server_ready_forwards_exceptions_in_ready_future():
+    _error_msg = "permission error"
+    failing_task = asyncio.get_running_loop().create_future()
+    failing_task.set_exception(PermissionError(13, _error_msg))
+
+    with patch.object(
+        CoreServer,
+        CoreServer.server_start.__name__,
+        return_value=failing_task,
+    ):
+        server = get_server("test_ready_exception_forwarding")
+        server.start(exec_mode="task", port=0)
+        with pytest.raises(PermissionError, match=f".*{_error_msg}.*"):
+            await asyncio.wait_for(server.ready, timeout=1.0)
