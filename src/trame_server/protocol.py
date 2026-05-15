@@ -1,4 +1,3 @@
-import asyncio
 import inspect
 import os
 from pathlib import Path
@@ -10,63 +9,6 @@ from wslink.websocket import ServerProtocol
 
 from trame_server.state import TRAME_NON_INIT_VALUE
 from trame_server.utils import clean_state, logger
-
-
-class NetworkMonitor:
-    """
-    Provide context manager for increase/decrease pending request
-    either synchronously or asynchronously.
-
-    The Asynchronous version also await completion.
-    """
-
-    def __init__(self):
-        self.timer = profiler.Timer("trame.network")
-        self.pending = 0
-        self.event = asyncio.Event()
-
-    def network_call_completed(self):
-        """Trigger completion event"""
-        self.event.set()
-
-    def on_enter(self, *_, **__):
-        """Increase pending request"""
-        if self.pending == 0:
-            self.timer.on_start()
-        self.pending += 1
-
-    def on_exit(self, *_, **__):
-        """Decrease pending request and trigger completion event if we reach 0 pending request"""
-        self.pending -= 1
-
-        if self.pending == 0:
-            self.timer.on_end()
-
-        if self.pending == 0 and not self.event.is_set():
-            self.event.set()
-
-    # Sync ctx manager
-    def __enter__(self):
-        self.on_enter()
-        return self
-
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        self.on_exit()
-
-    # Async ctx manager
-    async def __aenter__(self):
-        self.on_enter()
-        return self
-
-    async def __aexit__(self, exc_t, exc_v, exc_tb):
-        self.on_exit()
-        await self.completion()
-
-    async def completion(self):
-        """Await completion of any pending network request"""
-        while self.pending:
-            self.event.clear()
-            await self.event.wait()
 
 
 class CoreServer(ServerProtocol):
@@ -123,14 +65,15 @@ class CoreServer(ServerProtocol):
     # ---------------------------------------------------------------
     # Server
     # ---------------------------------------------------------------
-    #
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Override it with our own that is getting profiled
-        self.network_monitor = NetworkMonitor()
-        for protocol in self.linkProtocols:
-            protocol.network_monitor = self.network_monitor
+        # Profile network using the monitor
+        self._network_timer = profiler.Timer("trame.network")
+        self.network_monitor.add_listener(
+            self._network_timer.on_start,
+            self._network_timer.on_end,
+        )
 
     def initialize(self):  # Called by wslink
         self.rpcMethods = {}

@@ -6,7 +6,7 @@ authors = [
     {name = "Kitware Inc."},
 ]
 dependencies = [
-    "wslink>=2.5,<3",
+    "wslink>=2.5.7,<3",
     "trame-common>=1.2.3",
     "more-itertools",
 ]
