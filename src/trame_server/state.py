@@ -187,6 +187,9 @@ class State:
         self._change_callbacks = share(internal, "_change_callbacks", {})
         self._pending_update = share(internal, "_pending_update", {})
         self._pushed_state = share(internal, "_pushed_state", {})
+        self._suppress_change_stack = share(
+            internal, "_suppress_change_stack", _SuppressListenersChangeStack()
+        )
         self._state_listeners = share(
             internal, "_state_listeners", StateChangeHandler(self._change_callbacks)
         )
@@ -195,8 +198,6 @@ class State:
         self._children_state = []
         if internal:
             internal._children_state.append(self)
-
-        self._suppress_change_stack = _SuppressListenersChangeStack()
 
     @property
     def is_ready(self) -> bool:

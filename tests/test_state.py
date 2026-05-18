@@ -738,3 +738,24 @@ def test_setdefault_trigger_change_on_ready():
 
     state.ready()
     mock.assert_called_once_with(1)
+
+
+def test_child_state_changes_propagated_to_parent_state(state):
+    child_state = State(internal=state)
+
+    mock1 = MagicMock()
+    mock2 = MagicMock()
+
+    @state.change("a")
+    def on_state_change(**_):
+        mock1()
+
+    @child_state.change("a")
+    def on_child_state_change(**_):
+        mock2()
+
+    child_state.a = 1
+    state.flush()
+
+    mock1.assert_called_once()
+    mock2.assert_called_once()
