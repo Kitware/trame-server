@@ -342,7 +342,10 @@ class ControllerFunction:
         self.can_be_empty = False
 
     def __call__(self, *args, **kwargs):
-        if self.func is None and len(self.funcs) + len(self.task_funcs) == 0:
+        if (
+            self.func is None
+            and len(self.funcs) + len(self.funcs_once) + len(self.task_funcs) == 0
+        ):
             if self.can_be_empty:
                 return None
             raise FunctionNotImplementedError(self.name)
