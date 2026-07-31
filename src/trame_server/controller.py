@@ -1,4 +1,5 @@
 import logging
+import types
 import weakref
 
 from .utils import asynchronous, is_dunder, share
@@ -80,6 +81,19 @@ class Controller:
             logger.info("trigger(%s)", name)
             self._triggers[name] = func
             self._triggers_fn2name[func] = name
+
+            # Add annotation to function
+            if not hasattr(func, "_trame_trigger_names"):
+                if isinstance(func, types.MethodType):
+                    _class = func.__self__.__class__
+                    _name = func.__name__
+                    getattr(_class, _name)._trame_trigger_names = []
+                else:
+                    func._trame_trigger_names = []
+
+            if name not in func._trame_trigger_names:
+                func._trame_trigger_names.append(name)
+
             return func
 
         return register_trigger
