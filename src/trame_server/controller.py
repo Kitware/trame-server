@@ -108,6 +108,23 @@ class Controller:
         """
         return self._triggers.get(name)
 
+    def trigger_unregister(self, fn_or_name):
+        """
+        Given a trigger name or function, unregister it.
+        Return the mapped name or function or False if not found.
+        """
+        if fn_or_name in self._triggers_fn2name:
+            name = self._triggers_fn2name.pop(fn_or_name)
+            self._triggers.pop(name)
+            return name
+
+        if fn_or_name in self._triggers:
+            fn = self._triggers.pop(fn_or_name)
+            self._triggers_fn2name.pop(fn)
+            return fn
+
+        return False
+
     def __getitem__(self, name):
         return self.__getattr__(name)
 
