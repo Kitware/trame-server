@@ -416,6 +416,9 @@ class ControllerFunction:
 
         :param func: Function to discard
         """
+        if self.func == func:
+            self.func = None
+
         self.funcs.discard(func)
         self.funcs_once.discard(func)
         self.task_funcs.discard(func)
