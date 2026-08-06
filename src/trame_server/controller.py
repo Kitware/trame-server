@@ -9,6 +9,17 @@ from .utils.namespace import Translator
 logger = logging.getLogger(__name__)
 
 
+def _add_trigger_name(func, name):
+    if isinstance(func, types.MethodType):
+        _class = func.__self__.__class__
+        if hasattr(_class, "_trame_trigger_method_names"):
+            _class._trame_trigger_method_names.append(func.__name__)
+        else:
+            _class._trame_trigger_method_names = [func.__name__]
+    else:
+        func.__dict__.setdefault("_trame_trigger_names", []).append(name)
+
+
 def _safe_call(f, *args, **kwargs):
     return (
         f() and f()(*args, **kwargs)
@@ -83,16 +94,7 @@ class Controller:
             self._triggers_fn2name[func] = name
 
             # Add annotation to function
-            if not hasattr(func, "_trame_trigger_names"):
-                if isinstance(func, types.MethodType):
-                    _class = func.__self__.__class__
-                    _name = func.__name__
-                    getattr(_class, _name)._trame_trigger_names = []
-                else:
-                    func._trame_trigger_names = []
-
-            if name not in func._trame_trigger_names:
-                func._trame_trigger_names.append(name)
+            _add_trigger_name(func, name)
 
             return func
 
@@ -128,13 +130,13 @@ class Controller:
         Return the mapped name or function or False if not found.
         """
         if fn_or_name in self._triggers_fn2name:
-            name = self._triggers_fn2name.pop(fn_or_name)
-            self._triggers.pop(name)
+            name = self._triggers_fn2name.pop(fn_or_name, None)
+            self._triggers.pop(name, None)
             return name
 
         if fn_or_name in self._triggers:
-            fn = self._triggers.pop(fn_or_name)
-            self._triggers_fn2name.pop(fn)
+            fn = self._triggers.pop(fn_or_name, None)
+            self._triggers_fn2name.pop(fn, None)
             return fn
 
         return False
