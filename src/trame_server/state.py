@@ -431,9 +431,13 @@ class State:
             reverse_translated_state = translator.reverse_translate_dict(
                 self._pushed_state
             )
-            coroutine = callback(**reverse_translated_state)
-            if inspect.isawaitable(coroutine):
-                asynchronous.create_task(coroutine)
+
+            try:
+                coroutine = callback(**reverse_translated_state)
+                if inspect.isawaitable(coroutine):
+                    asynchronous.create_task(coroutine)
+            except Exception as e:
+                logger.warning("@change callback exception ignored: %s", e)
 
         self._state_listeners.clear()
         return _keys

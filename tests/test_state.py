@@ -8,47 +8,7 @@ from trame_server.core import Translator
 from trame_server.state import State
 
 
-class FakeServer:
-    def __init__(self):
-        self._change_callbacks = {}
-        self._events = []
-        self.translator = Translator()
-
-    def _push_state(self, delta_state):
-        self._events.append({"type": "push", "content": {**delta_state}})
-
-    def add_event(self, content, type="msg"):
-        self._events.append({"type": type, "content": content})
-
-    @property
-    def pushed_state(self) -> dict:
-        pushed = {}
-        for e in self._events:
-            if e["type"] == "push":
-                pushed.update(e["content"])
-        return pushed
-
-    def __repr__(self) -> str:
-        lines = [""]
-        for line_nb, entry in enumerate(self._events):
-            lines.append(f"{line_nb:6} {entry.get('type'):5}: {entry.get('content')}")
-        lines.append("")
-        return "\n".join(lines)
-
-
-@pytest.fixture
-def server():
-    return FakeServer()
-
-
-@pytest.fixture
-def state(server):
-    _state = State(commit_fn=server._push_state)
-    _state.ready()
-    return _state
-
-
-def test_minimum_change_detection():
+def test_minimum_change_detection(fake_server):
     """
      0 msg  : test_minimum_change_detection
      1 msg  : Before server ready
@@ -80,9 +40,9 @@ def test_minimum_change_detection():
     27 push : {'a': 1, 'b': 2, 'c': 3}
     28 exec : 1
     """
-    server = FakeServer()
+    server = fake_server
     server.add_event("test_minimum_change_detection")
-    state = State(commit_fn=server._push_state)
+    state = fake_server.state
 
     @state.change("a")
     def on_change_exec(a, **_):
@@ -167,20 +127,20 @@ def test_minimum_change_detection():
     assert expected == result
 
 
-def test_client_only():
-    server = FakeServer()
+def test_client_only(fake_server):
+    server = fake_server
     server.add_event("test_client_only")
-    state = State(commit_fn=server._push_state)
+    state = fake_server.state
     state.ready()
 
     state.aa = 1
     state.client_only("aa")
 
 
-def test_dict_api():
-    server = FakeServer()
+def test_dict_api(fake_server):
+    server = fake_server
     server.add_event("test_dict_api")
-    state = State(commit_fn=server._push_state)
+    state = fake_server.state
     state.flush()  # should return right away since not ready
     state.ready()
 
@@ -209,16 +169,16 @@ def test_dict_api():
 
 
 @pytest.mark.asyncio
-async def test_change_detection():
+async def test_change_detection(fake_server):
     """
     0 msg  : test_change_detection
     1 push : {'a': 2}
     2 msg  : a changed (sync)
     3 msg  : a changed (async)
     """
-    server = FakeServer()
+    server = fake_server
     server.add_event("test_change_detection")
-    state = State(commit_fn=server._push_state, hot_reload=True)
+    state = fake_server.state
     state.ready()
 
     state.a = 1
@@ -251,10 +211,10 @@ async def test_change_detection():
     assert expected == result
 
 
-def test_dunder():
-    server = FakeServer()
+def test_dunder(fake_server):
+    server = fake_server
     server.add_event("test_dunder")
-    state = State(commit_fn=server._push_state, hot_reload=True)
+    state = fake_server.state
     state.ready()
 
     # get dunder
@@ -272,7 +232,7 @@ def test_dunder():
 
 
 @pytest.mark.asyncio
-async def test_modified_keys():
+async def test_modified_keys(fake_server):
     """
      0 msg  : test_modified_keys
      1 push : {'a': 1, 'b': 2, 'c': 3}
@@ -293,9 +253,9 @@ async def test_modified_keys():
     16 msg  : changed ['a', 'b']
     17 msg  : End of flush 3
     """
-    server = FakeServer()
+    server = fake_server
     server.add_event("test_modified_keys")
-    state = State(commit_fn=server._push_state)
+    state = fake_server.state
 
     NAMES = ["a", "b", "c"]
     state.update(
@@ -363,9 +323,8 @@ async def test_modified_keys():
     assert expected == result
 
 
-def test_weakref():
-    server = FakeServer()
-    state = State(commit_fn=server._push_state, hot_reload=True)
+def test_weakref(fake_server):
+    state = fake_server.state
     state.ready()
 
     class Obj:
@@ -399,8 +358,11 @@ def test_weakref():
 
 
 def test_given_explicit_keys_when_modified_inside_context_then_listeners_are_not_called(
-    state, server
+    fake_server,
 ):
+    server = fake_server
+    state = fake_server.state
+    state.ready()
     mock = MagicMock()
 
     @state.change("a")
@@ -416,8 +378,11 @@ def test_given_explicit_keys_when_modified_inside_context_then_listeners_are_not
 
 
 def test_given_explicit_keys_when_flushing_inside_context_then_listeners_are_not_called(
-    state, server
+    fake_server,
 ):
+    server = fake_server
+    state = fake_server.state
+    state.ready()
     mock = MagicMock()
 
     @state.change("a")
@@ -435,8 +400,11 @@ def test_given_explicit_keys_when_flushing_inside_context_then_listeners_are_not
 
 
 def test_given_no_keys_when_any_key_modified_inside_context_then_listeners_are_not_called(
-    state, server
+    fake_server,
 ):
+    server = fake_server
+    state = fake_server.state
+    state.ready()
     mock = MagicMock()
 
     @state.change("a", "b")
@@ -454,8 +422,11 @@ def test_given_no_keys_when_any_key_modified_inside_context_then_listeners_are_n
 
 
 def test_given_nested_no_keys_when_any_key_modified_inside_context_then_listeners_are_not_called(
-    state, server
+    fake_server,
 ):
+    server = fake_server
+    state = fake_server.state
+    state.ready()
     mock = MagicMock()
 
     @state.change("a", "b")
@@ -475,8 +446,10 @@ def test_given_nested_no_keys_when_any_key_modified_inside_context_then_listener
 
 
 def test_given_modified_keys_when_context_exits_then_keys_are_marked_clean_in_state(
-    state,
+    fake_server,
 ):
+    state = fake_server.state
+    state.ready()
     with state.suppress_change_listeners("a"):
         state.a = 2
 
@@ -485,8 +458,12 @@ def test_given_modified_keys_when_context_exits_then_keys_are_marked_clean_in_st
 
 
 def test_given_multiple_nested_suppress_contexts_when_exiting_then_all_keys_are_synced_correctly(
-    state, server
+    fake_server,
 ):
+    server = fake_server
+    state = fake_server.state
+    state.ready()
+
     mock = MagicMock()
 
     @state.change("a", "b")
@@ -508,8 +485,12 @@ def test_given_multiple_nested_suppress_contexts_when_exiting_then_all_keys_are_
 
 
 def test_given_nested_suppress_with_same_key_keeps_suppression_in_outer_context(
-    state, server
+    fake_server,
 ):
+    server = fake_server
+    state = fake_server.state
+    state.ready()
+
     mock = MagicMock()
 
     @state.change("a")
@@ -530,8 +511,11 @@ def test_given_nested_suppress_with_same_key_keeps_suppression_in_outer_context(
 
 
 def test_given_mixed_updates_when_some_are_suppressed_then_only_normal_updates_trigger_listeners(
-    state,
+    fake_server,
 ):
+    state = fake_server.state
+    state.ready()
+
     mock_a = MagicMock()
     mock_b = MagicMock()
 
@@ -553,8 +537,12 @@ def test_given_mixed_updates_when_some_are_suppressed_then_only_normal_updates_t
 
 
 def test_given_exception_in_context_when_raised_then_cleanup_logic_still_executes(
-    state, server
+    fake_server,
 ):
+    server = fake_server
+    state = fake_server.state
+    state.ready()
+
     mock = MagicMock()
 
     @state.change("a")
@@ -574,8 +562,9 @@ def test_given_exception_in_context_when_raised_then_cleanup_logic_still_execute
 
 
 def test_given_namespaced_state_when_using_suppress_context_then_keys_are_correctly_translated(
-    server,
+    fake_server,
 ):
+    server = fake_server
     translator = Translator(prefix="test_")
     state = State(translator=translator, commit_fn=server._push_state)
     state.ready()
@@ -595,8 +584,11 @@ def test_given_namespaced_state_when_using_suppress_context_then_keys_are_correc
 
 
 def test_given_change_callback_when_it_modifies_state_suppressed_then_recursion_is_avoided(
-    state, server
+    fake_server,
 ):
+    server = fake_server
+    state = fake_server.state
+    state.ready()
     mock = MagicMock()
 
     @state.change("a")
@@ -617,7 +609,9 @@ def test_given_change_callback_when_it_modifies_state_suppressed_then_recursion_
     mock.assert_not_called()
 
 
-def test_given_chain_supress_sequence_correctly_suppress_scoped_listeners(state):
+def test_given_chain_supress_sequence_correctly_suppress_scoped_listeners(fake_server):
+    state = fake_server.state
+    state.ready()
     mock = MagicMock()
 
     @state.change("a", "b", "c")
@@ -636,7 +630,9 @@ def test_given_chain_supress_sequence_correctly_suppress_scoped_listeners(state)
     mock.assert_called_once_with(a=42, b=2, c=3)
 
 
-def test_keys_marked_dirty_triggers_listener_changes(state):
+def test_keys_marked_dirty_triggers_listener_changes(fake_server):
+    state = fake_server.state
+    state.ready()
     mock = MagicMock()
 
     @state.change("a")
@@ -652,7 +648,8 @@ def test_keys_marked_dirty_triggers_listener_changes(state):
     mock.assert_called_once_with(1)
 
 
-def test_keys_marked_dirty_in_suppress_does_not_trigger_listener_changes(state):
+def test_keys_marked_dirty_in_suppress_does_not_trigger_listener_changes(fake_server):
+    state = fake_server.state
     mock = MagicMock()
 
     @state.change("a")
@@ -670,7 +667,8 @@ def test_keys_marked_dirty_in_suppress_does_not_trigger_listener_changes(state):
     mock.assert_not_called()
 
 
-def test_keys_marked_clean_does_not_trigger_listener_changes(state):
+def test_keys_marked_clean_does_not_trigger_listener_changes(fake_server):
+    state = fake_server.state
     mock = MagicMock()
 
     @state.change("a")
@@ -683,7 +681,8 @@ def test_keys_marked_clean_does_not_trigger_listener_changes(state):
     mock.assert_not_called()
 
 
-def test_keys_marked_clean_in_suppress_does_not_trigger_listener_changes(state):
+def test_keys_marked_clean_in_suppress_does_not_trigger_listener_changes(fake_server):
+    state = fake_server.state
     mock = MagicMock()
 
     @state.change("a")
@@ -698,7 +697,9 @@ def test_keys_marked_clean_in_suppress_does_not_trigger_listener_changes(state):
     mock.assert_not_called()
 
 
-def test_state_change_listeners_are_triggered_in_modified_order(state):
+def test_state_change_listeners_are_triggered_in_modified_order(fake_server):
+    state = fake_server.state
+    state.ready()
     keys = [f"k_{i}" for i in range(10)]
     recorded = []
 
@@ -740,8 +741,10 @@ def test_setdefault_trigger_change_on_ready():
     mock.assert_called_once_with(1)
 
 
-def test_child_state_changes_propagated_to_parent_state(state):
+def test_child_state_changes_propagated_to_parent_state(fake_server):
+    state = fake_server.state
     child_state = State(internal=state)
+    state.ready()
 
     mock1 = MagicMock()
     mock2 = MagicMock()
