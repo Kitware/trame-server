@@ -1,4 +1,5 @@
 import logging
+import types
 import weakref
 
 from .utils import asynchronous, is_dunder, share
@@ -6,6 +7,17 @@ from .utils.hot_reload import reload
 from .utils.namespace import Translator
 
 logger = logging.getLogger(__name__)
+
+
+def _add_trigger_name(func, name):
+    if isinstance(func, types.MethodType):
+        _class = func.__self__.__class__
+        if hasattr(_class, "_trame_trigger_method_names"):
+            _class._trame_trigger_method_names.append(func.__name__)
+        else:
+            _class._trame_trigger_method_names = [func.__name__]
+    else:
+        func.__dict__.setdefault("_trame_trigger_names", []).append(name)
 
 
 def _safe_call(f, *args, **kwargs):
@@ -55,7 +67,7 @@ class Controller:
 
     def __init__(self, translator=None, internal=None, hot_reload=False):
         super().__setattr__("__trame_hot_reload__", hot_reload)
-        super().__setattr__("_translator", translator if translator else Translator())
+        super().__setattr__("_translator", translator or Translator())
         super().__setattr__("_triggers", share(internal, "_triggers", {}))
         super().__setattr__(
             "_triggers_fn2name", share(internal, "_triggers_fn2name", {})
@@ -80,6 +92,10 @@ class Controller:
             logger.info("trigger(%s)", name)
             self._triggers[name] = func
             self._triggers_fn2name[func] = name
+
+            # Add annotation to function
+            _add_trigger_name(func, name)
+
             return func
 
         return register_trigger
@@ -107,6 +123,23 @@ class Controller:
         :rtype: function
         """
         return self._triggers.get(name)
+
+    def trigger_unregister(self, fn_or_name):
+        """
+        Given a trigger name or function, unregister it.
+        Return the mapped name or function or False if not found.
+        """
+        if fn_or_name in self._triggers_fn2name:
+            name = self._triggers_fn2name.pop(fn_or_name, None)
+            self._triggers.pop(name, None)
+            return name
+
+        if fn_or_name in self._triggers:
+            fn = self._triggers.pop(fn_or_name, None)
+            self._triggers_fn2name.pop(fn, None)
+            return fn
+
+        return False
 
     def __getitem__(self, name):
         return self.__getattr__(name)
@@ -175,7 +208,6 @@ class Controller:
             ctrl.on_server_ready.add(on_ready)
 
         """
-        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             if clear:
@@ -206,7 +238,6 @@ class Controller:
             ctrl.on_server_ready.once(on_ready)
 
         """
-        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             self[name].once(func)
@@ -249,7 +280,6 @@ class Controller:
             ctrl.on_server_ready.add_task(on_ready)
 
         """
-        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             if clear:
@@ -295,7 +325,6 @@ class Controller:
             ctrl.on_server_ready = on_ready
 
         """
-        name = self._translator.translate_key(name)
 
         def register_ctrl_method(func):
             if clear:
@@ -326,9 +355,15 @@ class ControllerFunction:
         self.funcs = set()
         self.task_funcs = set()
         self.funcs_once = set()
+        self.can_be_empty = False
 
     def __call__(self, *args, **kwargs):
-        if self.func is None and len(self.funcs) + len(self.task_funcs) == 0:
+        if (
+            self.func is None
+            and len(self.funcs) + len(self.funcs_once) + len(self.task_funcs) == 0
+        ):
+            if self.can_be_empty:
+                return None
             raise FunctionNotImplementedError(self.name)
 
         copy_list = list(self.funcs) + list(self.funcs_once)
@@ -359,7 +394,7 @@ class ControllerFunction:
         # Figure out return
         if self.func is None:
             return results
-        if len(copy_list):
+        if copy_list:
             return [result, *results]
         if len(self.task_funcs):
             return results
@@ -400,6 +435,9 @@ class ControllerFunction:
 
         :param func: Function to discard
         """
+        if self.func == func:
+            self.func = None
+
         self.funcs.discard(func)
         self.funcs_once.discard(func)
         self.task_funcs.discard(func)
@@ -444,6 +482,16 @@ class ControllerFunction:
         if self.func is not None:
             return True
         return len(self.funcs) + len(self.task_funcs) > 0
+
+    def enable_empty(self, value=True):
+        """
+        Enable entry to be empty.
+        Useful for events when you don't know if someone will be listening.
+
+        :return: self so it can be used inline like a builder.
+        """
+        self.can_be_empty = value
+        return self
 
     @property
     def hot_reload(self):

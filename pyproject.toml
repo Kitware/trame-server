@@ -1,15 +1,16 @@
 [project]
 name = "trame-server"
-version = "3.6.0"
+version = "3.13.2"
 description = "Internal server side implementation of trame"
 authors = [
     {name = "Kitware Inc."},
 ]
 dependencies = [
-    "wslink>=2.2.2,<3",
+    "wslink>=2.5.7,<3",
+    "trame-common>=1.2.3",
     "more-itertools",
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 readme = "README.rst"
 license = {text = "Apache License 2.0"}
 keywords = ["Python", "Interactive", "Web", "Application", "Framework"]
@@ -30,19 +31,29 @@ dev = [
     "ruff",
     "pytest",
     "pytest-asyncio",
+    "pytest-cov",
     "nox",
+    "trame",
 ]
 
 [build-system]
-requires = ['setuptools']
-build-backend = 'setuptools.build_meta'
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools.packages.find]
-where = ["."]
+[tool.hatch.build]
+include = [
+  "/src/trame_server/**/*.py",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/trame_server"]
 
 [tool.semantic_release]
 version_toml = [
     "pyproject.toml:project.version",
+]
+version_variables = [
+    "src/trame_server/__init__.py:__version__",
 ]
 build_command = """
   python -m venv .venv
@@ -50,6 +61,10 @@ build_command = """
   pip install -U pip build
   python -m build .
 """
+
+[tool.semantic_release.publish]
+dist_glob_patterns = ["dist/*"]
+upload_to_vcs_release = true
 
 [tool.pytest.ini_options]
 log_cli_level = "INFO"

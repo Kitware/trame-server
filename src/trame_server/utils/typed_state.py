@@ -1,5 +1,6 @@
 import inspect
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
 from dataclasses import MISSING, Field, fields, is_dataclass
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
@@ -37,6 +38,9 @@ class _SerializationFailure:
 
     def __eq__(self, other):
         return isinstance(other, _SerializationFailure)
+
+    def __hash__(self):
+        return hash(self.reason)
 
 
 class IStateEncoderDecoder(ABC):
@@ -115,6 +119,12 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
         self._encoders = encoders or [DefaultEncoderDecoder()]
 
     def encode(self, obj):
+        if is_dataclass(obj):
+            return {
+                field.name: self.encode(getattr(obj, field.name))
+                for field in fields(obj)
+            }
+
         if isinstance(obj, dict):
             return {self.encode(key): self.encode(value) for key, value in obj.items()}
 
@@ -156,6 +166,7 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
 
     def _decode_strategies(self) -> list[Callable[[Any, type], Any]]:
         return [
+            self._decode_dataclass,
             self._decode_union,
             self._decode_dict,
             self._decode_iterable,
@@ -195,6 +206,17 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
             if self.is_serialization_success(val):
                 return val
         return self.failed_serialization()
+
+    def _decode_dataclass(self, obj, obj_type: type):
+        if not is_dataclass(obj_type):
+            return self.failed_serialization()
+
+        field_types = get_type_hints(obj_type)
+        decoded_dict = {
+            field.name: self._try_decode(obj.get(field.name), field_types[field.name])
+            for field in fields(obj_type)
+        }
+        return obj_type(**decoded_dict)
 
     @classmethod
     def _is_union_type(cls, obj_type: type):
@@ -632,3 +654,15 @@ class TypedState(Generic[T]):
             data=sub_data,
             name=sub_name,
         )
+
+    @contextmanager
+    def suppress_change_listeners(self):
+        """
+        Suppresses bind_changes callbacks bound to any typed state name from triggering in the current context.
+        Suppression only impacts the server and any state changed will be properly sent to the client.
+        """
+
+        with self.state.suppress_change_listeners(
+            *list(self.get_field_proxy_dict(self.name).keys())
+        ):
+            yield

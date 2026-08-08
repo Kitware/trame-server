@@ -1,6 +1,9 @@
 import inspect
 import logging
 import weakref
+from collections import deque
+from contextlib import contextmanager
+from typing import Any, Iterable, Iterator
 
 from .utils import asynchronous, is_dunder, is_private, share
 from .utils.hot_reload import reload
@@ -15,10 +18,70 @@ __all__ = [
 TRAME_NON_INIT_VALUE = "__trame__: non_init_value_that_is_not_None"
 
 
+class StateStatus:
+    """
+    Tracks status flags for a State.
+    """
+
+    def __init__(self, flushing: bool = False, ready: bool = False):
+        self.flushing = flushing
+        self.ready = ready
+
+    def mark_ready(self):
+        self.ready = True
+
+    @property
+    def skip_flushing(self) -> bool:
+        return self.flushing or not self.ready
+
+    @contextmanager
+    def flushing_context(self):
+        """Context manager for flushing state safely."""
+        self.flushing = True
+        try:
+            yield
+        finally:
+            self.flushing = False
+
+
+class _OrderedSet:
+    """
+    Lightweight ordered set implementation based on dict to preserve insertion order
+    without external dependencies.
+    """
+
+    def __init__(self, *args: Any) -> None:
+        self._data: dict[Any, None] = {}
+        for arg in args:
+            self.add(arg)
+
+    def __bool__(self) -> bool:
+        return bool(self._data)
+
+    def __contains__(self, key: Any) -> bool:
+        return key in self._data
+
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self._data)
+
+    def add(self, key: Any) -> None:
+        self._data[key] = None
+
+    def clear(self) -> None:
+        self._data.clear()
+
+    def discard(self, key: Any) -> None:
+        self._data.pop(key, None)
+
+    def update(self, iterable: Iterable[Any]) -> None:
+        for item in iterable:
+            self.add(item)
+
+
 class StateChangeHandler:
     def __init__(self, listeners):
         self._all_listeners = listeners
-        self._currents = set()
+        self._currents = _OrderedSet()
 
     def add(self, key):
         if key in self._all_listeners:
@@ -34,6 +97,66 @@ class StateChangeHandler:
 
     def __iter__(self):
         return iter(list(self._currents))
+
+
+class _SuppressListenersChangeStack:
+    """
+    Helper class to handle change listener keys to suppress and which to trigger.
+    """
+
+    def __init__(self):
+        self._deque: deque[_OrderedSet] = deque()
+        self._suppressed_keys: _OrderedSet | None = None
+        self._listener_keys: _OrderedSet = _OrderedSet()
+
+    def on_pending_key_added(self, key: str) -> None:
+        if not self._is_suppressed(key):
+            self._listener_keys.add(key)
+
+    def on_pending_key_removed(self, key: str) -> None:
+        self._listener_keys.discard(key)
+
+    def push(self, *keys: str) -> None:
+        self._deque.append(_OrderedSet(*keys))
+        self._update_suppressed_keys()
+
+    def pop(self) -> None:
+        if not self._deque:
+            return
+
+        self._deque.pop()
+        self._update_suppressed_keys()
+
+    def clear(self) -> None:
+        self._listener_keys = _OrderedSet()
+
+    def get_change_listener_keys(self) -> _OrderedSet:
+        return self._listener_keys
+
+    def _is_suppressed(self, key: str) -> bool:
+        if self._suppressed_keys is None:
+            return False
+        if not self._suppressed_keys:
+            return True
+        return key in self._suppressed_keys
+
+    def _update_suppressed_keys(self) -> None:
+        """
+        Updates the suppressed keys set.
+        If the stack is empty, the suppressed keys will be reset to None.
+        If the stack contains one empty set (catch all) the suppressed set will be updated to an empty set (catch all).
+        Otherwise, the suppressed keys will represent the union of the stack's sets.
+        """
+        if not self._deque:
+            self._suppressed_keys = None
+            return
+
+        self._suppressed_keys = _OrderedSet()
+        for d_set in self._deque:
+            if not d_set:
+                self._suppressed_keys.clear()
+                return
+            self._suppressed_keys.update(d_set)
 
 
 class State:
@@ -59,45 +182,40 @@ class State:
     ):
         self._push_state_fn = commit_fn
         self._hot_reload = hot_reload
-        self._translator = translator if translator else Translator()
+        self._translator = translator or Translator()
         self._modified_keys = share(internal, "_modified_keys", set())
         self._change_callbacks = share(internal, "_change_callbacks", {})
         self._pending_update = share(internal, "_pending_update", {})
         self._pushed_state = share(internal, "_pushed_state", {})
+        self._suppress_change_stack = share(
+            internal, "_suppress_change_stack", _SuppressListenersChangeStack()
+        )
         self._state_listeners = share(
             internal, "_state_listeners", StateChangeHandler(self._change_callbacks)
         )
+        self._status = share(internal, "_status", StateStatus(ready=ready))
         self._parent_state = internal
         self._children_state = []
-        self._ready_flag = ready
         if internal:
             internal._children_state.append(self)
-
-    def ready(self) -> None:
-        """Mark the state as ready for synchronization."""
-        if self._ready_flag:
-            return
-
-        self._ready_flag = True
-        self.flush()
-
-        if self._parent_state:
-            self._parent_state.ready()
-
-        for child in self._children_state:
-            child.ready()
 
     @property
     def is_ready(self) -> bool:
         """Return True is the instance is ready for synchronization, False otherwise."""
-        if self._parent_state:
-            return self._parent_state.is_ready
-        return self._ready_flag
+        return self._status.ready
 
     @property
     def translator(self) -> Translator:
         """Return the translator instance used to namespace the variable names."""
         return self._translator
+
+    def ready(self) -> None:
+        """Mark the state as ready for synchronization."""
+        if self.is_ready:
+            return
+
+        self._status.mark_ready()
+        self.flush()
 
     def __getitem__(self, key):
         key = self._translator.translate_key(key)
@@ -108,9 +226,11 @@ class State:
         if key in self._pushed_state:
             if value == self._pushed_state[key]:
                 self._pending_update.pop(key, None)
+                self._suppress_change_stack.on_pending_key_removed(key)
                 return
 
         self._pending_update[key] = value
+        self._suppress_change_stack.on_pending_key_added(key)
 
     def __getattr__(self, key):
         if is_dunder(key):
@@ -181,6 +301,8 @@ class State:
         key = self._translator.translate_key(key)
         if key in self._pushed_state:
             return self._pushed_state[key]
+
+        self._suppress_change_stack.on_pending_key_added(key)
         return self._pending_update.setdefault(key, value)
 
     def is_dirty(self, *_args):
@@ -218,6 +340,7 @@ class State:
         _args = self._translator.translate_list(_args)
         for key in _args:
             self._pending_update.setdefault(key, self._pushed_state.get(key))
+            self._suppress_change_stack.on_pending_key_added(key)
 
     def clean(self, *_args):
         """
@@ -225,10 +348,12 @@ class State:
         This will prevent change listener(s) to react or the client
         to be aware of any change.
         """
+        self._suppress_change_stack.clear()
         _args = self._translator.translate_list(_args)
         for key in _args:
             if key in self._pending_update:
                 self._pushed_state[key] = self._pending_update.pop(key)
+                self._suppress_change_stack.on_pending_key_removed(key)
 
     def update(self, _dict):
         """Update the current state dict with the provided one"""
@@ -237,6 +362,9 @@ class State:
         for key in _dict:
             if _dict[key] == self._pushed_state.get(key, TRAME_NON_INIT_VALUE):
                 self._pending_update.pop(key, None)
+                self._suppress_change_stack.on_pending_key_removed(key)
+            else:
+                self._suppress_change_stack.on_pending_key_added(key)
 
     @property
     def modified_keys(self):
@@ -271,6 +399,53 @@ class State:
         # for child server we may need to run the translator on them
         return self._modified_keys
 
+    def _flush_pending_keys(self) -> set[str]:
+        _keys = set(self._pending_update.keys())
+
+        # update modified keys for current update batch
+        self._modified_keys.clear()
+        self._modified_keys |= _keys
+
+        # Do the flush
+        if self._push_state_fn:
+            self._push_state_fn(self._pending_update)
+        self._pushed_state.update(self._pending_update)
+        self._pending_update.clear()
+
+        # Execute state listeners
+        self._state_listeners.add_all(
+            self._suppress_change_stack.get_change_listener_keys()
+        )
+
+        # Clear change keys before triggering listeners as listeners can trigger modifications in chain
+        self._suppress_change_stack.clear()
+
+        for fn, translator in self._state_listeners:
+            if isinstance(fn, weakref.WeakMethod):
+                callback = fn()
+                if callback is None:
+                    continue
+            else:
+                callback = fn
+
+            if self._hot_reload:
+                if not inspect.iscoroutinefunction(callback):
+                    callback = reload(callback)
+
+            reverse_translated_state = translator.reverse_translate_dict(
+                self._pushed_state
+            )
+
+            try:
+                coroutine = callback(**reverse_translated_state)
+                if inspect.isawaitable(coroutine):
+                    asynchronous.create_task(coroutine)
+            except Exception as e:
+                logger.warning("@change callback exception ignored: %s", e)
+
+        self._state_listeners.clear()
+        return _keys
+
     def flush(self):
         """
         Force pushing modified state and execute any @state.change listener
@@ -278,48 +453,13 @@ class State:
         previous value or if `dirty` has been flagged on the variable and it has
         not been unflagged since.
         """
-        if not self.is_ready:
+        if self._status.skip_flushing:
             return None
 
         keys = set()
-        if len(self._pending_update):
-            _keys = set(self._pending_update.keys())
-
-            while len(_keys):
-                keys |= _keys
-
-                # update modified keys for current update batch
-                self._modified_keys.clear()
-                self._modified_keys |= _keys
-
-                # Do the flush
-                if self._push_state_fn:
-                    self._push_state_fn(self._pending_update)
-                self._pushed_state.update(self._pending_update)
-                self._pending_update.clear()
-
-                # Execute state listeners
-                self._state_listeners.add_all(_keys)
-                for fn in self._state_listeners:
-                    if isinstance(fn, weakref.WeakMethod):
-                        callback = fn()
-                        if callback is None:
-                            continue
-                    else:
-                        callback = fn
-
-                    if self._hot_reload:
-                        if not inspect.iscoroutinefunction(callback):
-                            callback = reload(callback)
-
-                    coroutine = callback(**self._pushed_state)
-                    if inspect.isawaitable(coroutine):
-                        asynchronous.create_task(coroutine)
-
-                self._state_listeners.clear()
-
-                # Check if state change from state listeners
-                _keys = set(self._pending_update.keys())
+        with self._status.flushing_context():
+            while bool(self._pending_update):
+                keys |= self._flush_pending_keys()
 
         return keys
 
@@ -366,7 +506,25 @@ class State:
                 if name not in self._change_callbacks:
                     self._change_callbacks[name] = []
 
-                self._change_callbacks[name].append(func)
+                self._change_callbacks[name].append((func, self._translator))
             return func
 
         return register_change_callback
+
+    @contextmanager
+    def suppress_change_listeners(self, *keys: str):
+        """
+        Suppresses input keys from triggering a state.change callback event in the scope of the context manager.
+        Suppression only impacts the server and any state changed will be properly sent to the client.
+
+        If called without arguments, suppress_change_listeners will suppress all listener changes in its scope.
+        When used in a child state, the input key should be the untranslated state key.
+        """
+
+        self._suppress_change_stack.push(
+            *[self.translator.translate_key(k) for k in keys]
+        )
+        try:
+            yield
+        finally:
+            self._suppress_change_stack.pop()

@@ -17,10 +17,21 @@ from trame_server.utils.typed_state import (
 
 
 @pytest.fixture
-def state():
-    server = Server()
+def server():
+    return Server()
+
+
+@pytest.fixture
+def state(server):
     server.state.ready()
     return server.state
+
+
+@pytest.fixture
+def child_state(server):
+    child_server = server.create_child_server(prefix="child_")
+    child_server.state.ready()
+    return child_server.state
 
 
 @dataclass
@@ -99,6 +110,17 @@ def test_can_be_used_to_connect_to_state_changes(state):
     state.flush()
 
     mock.assert_called_once_with(53)
+
+
+def test_can_handle_child_server(state, child_state):
+    typed_state_main = TypedState(state, MyData)
+    typed_state_child = TypedState(child_state, MyData)
+
+    typed_state_main.data.a = 40
+    typed_state_child.data.a = 3
+
+    assert typed_state_main.data.a != typed_state_child.data.a
+    assert typed_state_child.data.a == state[f"child_{typed_state_child.name.a}"]
 
 
 class MyEnum(Enum):
@@ -437,3 +459,107 @@ def test_failure_to_encode_raises_type_error(state):
 
     with pytest.raises(TypeError):
         print(typed_state.data.my_enum)
+
+
+@dataclass
+class SimpleTypes:
+    my_int: int
+    my_enum: MyEnum
+    my_path: Path
+
+
+@dataclass
+class TypedComposite:
+    simple_types: SimpleTypes = field(default_factory=SimpleTypes)
+
+
+@dataclass
+class DataclassCollections:
+    nested_list: list[TypedComposite] = field(default_factory=list)
+    nested_dict: dict[str, TypedComposite] = field(default_factory=dict)
+
+
+def test_encode_decode_supports_collections_of_nested_dataclass(state):
+    typed_state = TypedState(state, DataclassCollections)
+    typed_state.data.nested_list = [
+        TypedComposite(
+            SimpleTypes(my_int=1, my_enum=MyEnum.A, my_path=Path("/path/to/1"))
+        ),
+        TypedComposite(
+            SimpleTypes(my_int=2, my_enum=MyEnum.B, my_path=Path("/path/to/2"))
+        ),
+    ]
+
+    typed_state.data.nested_dict = {
+        "3": TypedComposite(
+            SimpleTypes(my_int=3, my_enum=MyEnum.C, my_path=Path("/path/to/3"))
+        ),
+        "4": TypedComposite(
+            SimpleTypes(my_int=4, my_enum=MyEnum.A, my_path=Path("/path/to/4"))
+        ),
+    }
+
+    assert typed_state.data.nested_list[0] == TypedComposite(
+        SimpleTypes(my_int=1, my_enum=MyEnum.A, my_path=Path("/path/to/1"))
+    )
+    assert typed_state.data.nested_list[1] == TypedComposite(
+        SimpleTypes(my_int=2, my_enum=MyEnum.B, my_path=Path("/path/to/2"))
+    )
+    assert typed_state.data.nested_dict["3"] == TypedComposite(
+        SimpleTypes(my_int=3, my_enum=MyEnum.C, my_path=Path("/path/to/3"))
+    )
+    assert typed_state.data.nested_dict["4"] == TypedComposite(
+        SimpleTypes(my_int=4, my_enum=MyEnum.A, my_path=Path("/path/to/4"))
+    )
+
+    assert state[typed_state.name.nested_list] == [
+        {
+            "simple_types": {
+                "my_int": 1,
+                "my_enum": typed_state.encode(MyEnum.A),
+                "my_path": typed_state.encode("/path/to/1"),
+            }
+        },
+        {
+            "simple_types": {
+                "my_int": 2,
+                "my_enum": typed_state.encode(MyEnum.B),
+                "my_path": typed_state.encode("/path/to/2"),
+            }
+        },
+    ]
+
+    assert state[typed_state.name.nested_dict] == {
+        "3": {
+            "simple_types": {
+                "my_int": 3,
+                "my_enum": typed_state.encode(MyEnum.C),
+                "my_path": typed_state.encode("/path/to/3"),
+            }
+        },
+        "4": {
+            "simple_types": {
+                "my_int": 4,
+                "my_enum": typed_state.encode(MyEnum.A),
+                "my_path": typed_state.encode("/path/to/4"),
+            }
+        },
+    }
+
+
+def test_can_supress_change_listeners(state):
+    mock = MagicMock()
+
+    typed_state = TypedState(state, MyBiggerData)
+    typed_state.bind_changes({typed_state.name.my_other_data: mock})
+    state.flush()
+
+    # Typed state definition sets defaults at creation.
+    # Reset mock to only check later mutation.
+    mock.reset_mock()
+
+    with typed_state.suppress_change_listeners():
+        typed_state.data.my_other_data.a = 53
+
+    state.flush()
+    mock.assert_not_called()

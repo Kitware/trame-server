@@ -34,9 +34,9 @@ async def test_print_informations():
 
 
 def test_version():
-    from trame_client import __version__ as v_client
+    from trame_client import __version__ as v_client  # noqa: PLC0415
 
-    from trame_server import __version__ as v_server
+    from trame_server import __version__ as v_server  # noqa: PLC0415
 
     assert version.get_version("trame_server") == v_server
     assert version.get_version("trame_client") == v_client

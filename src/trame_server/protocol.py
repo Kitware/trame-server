@@ -2,6 +2,7 @@ import inspect
 import os
 from pathlib import Path
 
+from trame_common.utils import profiler
 from wslink import register as exportRpc
 from wslink import server
 from wslink.websocket import ServerProtocol
@@ -64,6 +65,15 @@ class CoreServer(ServerProtocol):
     # ---------------------------------------------------------------
     # Server
     # ---------------------------------------------------------------
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Profile network using the monitor
+        self._network_timer = profiler.Timer("trame.network")
+        self.network_monitor.add_listener(
+            self._network_timer.on_start,
+            self._network_timer.on_end,
+        )
 
     def initialize(self):  # Called by wslink
         self.rpcMethods = {}
@@ -94,6 +104,13 @@ class CoreServer(ServerProtocol):
             self.server._running_stage = 2
             self.server.state.ready()
             self.server.context.ready()
+
+            # Add on_server_exception
+            self.server.protocol.log_emitter.add_event_listener(
+                "exception", self.server.controller.on_exception.enable_empty()
+            )
+
+            # Trigger on_server_ready
             if self.server.controller.on_server_ready.exists():
                 self.server.controller.on_server_ready(**self.server.state.to_dict())
 
@@ -189,7 +206,10 @@ class CoreServer(ServerProtocol):
 
     @exportRpc("trame.error.client")
     def js_error(self, message):
-        print(f" JS Error => {message}")
+        if self.server.controller.on_error.exists():
+            self.server.controller.on_error(message)
+        else:
+            print(f" JS Error => {message}")
 
     # ---------------------------------------------------------------
 

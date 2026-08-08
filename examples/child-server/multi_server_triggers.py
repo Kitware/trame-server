@@ -59,7 +59,7 @@ class SecondApp:
 
         self.state.random_value = random.random()
 
-        # timing thing to get name resoved
+        # timing thing to get name resolved
         self.server.trigger("second")(self.second_trigger)
 
         self._build_ui(template_name)

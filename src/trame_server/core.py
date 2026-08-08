@@ -61,7 +61,7 @@ class Server:
     ) -> None:
         # Core internal variables
         self._parent_server = parent_server
-        self._translator = translator if translator else Translator()
+        self._translator = translator or Translator()
         self._name = share(parent_server, "_name", name)
         self._options = share(parent_server, "_options", options)
         self._client_type = share(parent_server, "_client_type", None)
@@ -86,16 +86,16 @@ class Server:
         )
         if parent_server is None:
             self._options["log_network"] = self._options.get(
-                "log_network", os.environ.get("TRAME_LOG_NETWORK", False)
+                "log_network", os.environ.get("TRAME_LOG_NETWORK")
             )
             self._options["ws_max_msg_size"] = self._options.get(
-                "ws_max_msg_size", os.environ.get("TRAME_WS_MAX_MSG_SIZE", 10000000)
+                "ws_max_msg_size", os.environ.get("TRAME_WS_MAX_MSG_SIZE") or 10000000
             )
             self._options["ws_heart_beat"] = self._options.get(
-                "ws_heart_beat", os.environ.get("TRAME_WS_HEART_BEAT", 30)
+                "ws_heart_beat", os.environ.get("TRAME_WS_HEART_BEAT") or 30
             )
             self._options["desktop_debug"] = self._options.get(
-                "desktop_debug", os.environ.get("TRAME_DESKTOP_DEBUG", False)
+                "desktop_debug", os.environ.get("TRAME_DESKTOP_DEBUG")
             )
             # reset default wslink startup message
             os.environ["WSLINK_READY_MSG"] = ""
@@ -143,7 +143,7 @@ class Server:
         self._ui = share(parent_server, "_ui", VirtualNodeManager(self, vn_constructor))
 
     def create_child_server(self, translator=None, prefix=None) -> Server:
-        translator = translator if translator else Translator(prefix=prefix)
+        translator = translator or Translator(prefix=prefix)
         return Server(translator=translator, parent_server=self)
 
     # -------------------------------------------------------------------------
@@ -348,7 +348,10 @@ class Server:
         if self._cli_parser:
             return self._cli_parser
 
-        self._cli_parser = ArgumentParser(description="Kitware trame")
+        self._cli_parser = ArgumentParser(
+            description="Kitware trame",
+            allow_abbrev=False,
+        )
 
         # Trame specific args
         self._cli_parser.add_argument(
@@ -391,6 +394,22 @@ class Server:
                     of the `--trame-args` will be used. For example:
                     `--trame-args="-p 8081 --server"`. Alternatively, the environment variable
                     `TRAME_ARGS` may be set instead.""",
+        )
+        self._cli_parser.add_argument(
+            "--follow-symlinks",
+            dest="static_follow_symlinks",
+            help="""flag for allowing to follow symlinks that lead outside
+                    the static root directory, by default it's not allowed
+                    and HTTP/404 will be returned on access.
+                    Enabling follow_symlinks can be a security risk,
+                    and may lead to a directory transversal attack.
+                    You do NOT need this option to follow symlinks which point
+                    to somewhere else within the static directory, this option
+                    is only used to break out of the security sandbox.
+                    Enabling this option is highly discouraged, and only
+                    expected to be used for edge cases in a local development
+                    setting where remote users do not have access to the server.""",
+            action="store_true",
         )
 
         CoreServer.add_arguments(self._cli_parser)
@@ -455,6 +474,15 @@ class Server:
             self._running_future = asyncio.get_running_loop().create_future()
 
         return self._running_future
+
+    def _resolve_ready_future(self, result=None, exception=None) -> None:
+        if self.ready.done():
+            return
+
+        if exception:
+            self.ready.set_exception(exception)
+        else:
+            self.ready.set_result(result)
 
     # -------------------------------------------------------------------------
     # API for network handling
@@ -540,6 +568,7 @@ class Server:
         show_connection_info: bool = True,
         disable_logging: bool = False,
         backend: BackendType | None = None,
+        follow_symlinks: bool | None = None,
         exec_mode: ExecModeType = "main",
         timeout: int | None = None,
         host: str | None = None,
@@ -558,7 +587,7 @@ class Server:
         :param port: A port number to listen to. When 0 is provided
                      the system will use a random open port.
         :param thread: If the server run in a thread which means
-                       we should disable interuption listeners
+                       we should disable interruption listeners
         :param open_browser: Should we open the system browser with app url.
                              Using the `--server` command line argument is
                              similar to setting it to False.
@@ -598,7 +627,7 @@ class Server:
 
         # Try to bind client if none were added
         if self._www is None:
-            from trame_client import module
+            from trame_client import module  # noqa: PLC0415
 
             self.enable_module(module)
 
@@ -615,8 +644,11 @@ class Server:
         if backend is None:
             backend = os.environ.get("TRAME_BACKEND", "aiohttp")
 
+        if follow_symlinks is not None:
+            options.static_follow_symlinks = follow_symlinks
+
         if open_browser is None:
-            open_browser = not os.environ.get("TRAME_SERVER", False)
+            open_browser = not os.environ.get("TRAME_SERVER")
 
         if options.host == "localhost":
             if host is None:
@@ -636,7 +668,7 @@ class Server:
             options.nosignalhandlers = True
 
         if options.banner:
-            from .utils.banner import print_banner
+            from .utils.banner import print_banner  # noqa: PLC0415
 
             self.controller.on_server_ready.add(print_banner)
 
@@ -644,7 +676,7 @@ class Server:
             exec_mode = "desktop"
 
         if exec_mode == "desktop":
-            from .utils.desktop import start_browser
+            from .utils.desktop import start_browser  # noqa: PLC0415
 
             options.port = 0
             exec_mode, show_connection_info, open_browser = "main", False, False
@@ -656,7 +688,7 @@ class Server:
         reverse_url = getattr(options, "reverse_url", None)
 
         if not reverse_url and show_connection_info and exec_mode != "task":
-            from .utils.server import print_informations
+            from .utils.server import print_informations  # noqa: PLC0415
 
             self.controller.on_server_ready.add(lambda **_: print_informations(self))
 
@@ -666,7 +698,7 @@ class Server:
             and exec_mode != "task"
             and not options.server
         ):
-            from .utils.browser import open_browser
+            from .utils.browser import open_browser  # noqa: PLC0415
 
             self.controller.on_server_ready.add(lambda **_: open_browser(self))
 
@@ -723,9 +755,10 @@ class Server:
                     if self.controller.on_server_exited.exists():
                         self.controller.on_server_exited(**self.state.to_dict())
                 except asyncio.CancelledError:
-                    pass  # Task cancellation should not be logged as an error.
-                except Exception:  # pylint: disable=broad-except
+                    self._resolve_ready_future(result=False)
+                except Exception as e:  # pylint: disable=broad-except
                     logging.exception("Exception raised by task = %r", task)
+                    self._resolve_ready_future(exception=e)
 
             task.add_done_callback(on_done)
 

@@ -1,5 +1,7 @@
 import asyncio
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -99,7 +101,12 @@ def test_enable_module():
 
     assert server.state.a == 1
     assert server.state.b == 2
-    assert server.serve == {"data": "/tmp"}
+    serve_conf = {
+        k: v
+        for k, v in server.serve.items()
+        if not k.startswith("__trame_client_external_scripts")
+    }
+    assert serve_conf == {"data": "/tmp"}
 
     @server.change("a")
     def on_change(**_):
@@ -109,7 +116,7 @@ def test_enable_module():
     def another_method():
         pass
 
-    assert server.state._change_callbacks["a"][0] == on_change
+    assert server.state._change_callbacks["a"][0][0] == on_change
     assert server.trigger_name(another_method) == "my_name"
     assert server.name == "test_enable_module"
 
@@ -123,6 +130,11 @@ def test_enable_module():
     # Can only be set once
     with pytest.raises(TypeError):
         server.client_type = "vue3"
+
+
+def test_cli_args_collision(pytestconfig: pytest.Config):
+    cli = pytestconfig.rootpath / "tests/data/test_cli.py"
+    subprocess.run([sys.executable, str(cli), "--f", "foo"], check=True)
 
 
 def test_cli():
@@ -207,9 +219,29 @@ def test_server_start_sync():
         }
     )
     server.state.a = b"sdkfjhvlskdjhf"
-    server.start(timeout=1, open_browser=False)
+    server.start(timeout=1, open_browser=False, port=0)
 
 
 def test_ui():
     server = get_server("test_ui")
     server.ui.vnode  # noqa: B018
+
+
+@pytest.mark.asyncio
+async def test_server_ready_forwards_exceptions_in_ready_future():
+    server_1 = get_server("test_ready_exception_forwarding_1")
+    server_1.start(exec_mode="task", port=0)
+    await server_1.ready
+
+    server_2 = get_server("test_ready_exception_forwarding_2")
+    server_2.start(exec_mode="task", port=server_1.port)
+    with pytest.raises(OSError, match="error while attempting to bind on address"):
+        await server_2.ready
+
+
+@pytest.mark.asyncio
+async def test_server_task_cancel_doesnt_hang_ready_future():
+    server = get_server("test_cancel")
+    task = server.start(exec_mode="task", port=0)
+    task.cancel()
+    await asyncio.wait_for(server.ready, timeout=1)

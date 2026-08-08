@@ -14,11 +14,11 @@ jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
-          python-version: "3.9"
+          python-version: "3.12"
 
       # Install and run pre-commit
       - run: |
@@ -44,25 +44,20 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install and Run Tests
         run: |
           pip install ".[dev]"
-          pip install -r tests/requirements.txt
-          # Run the tests with coverage so we get a coverage report too
-          pip install coverage
-          coverage run --omit "*/tests/*" --source . -m pytest .
-          # Print the coverage report
-          coverage report -m
+          pytest --cov
 
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v5.5.1
+        uses: codecov/codecov-action@v7.0.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -79,13 +74,13 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Python Semantic Release
         id: release
-        uses: relekang/python-semantic-release@v10.3.2
+        uses: relekang/python-semantic-release@v10.6.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 

@@ -157,3 +157,30 @@ async def test_tasks(controller):
     assert controller.async_fn.exists()
     controller.async_fn.clear()
     assert not controller.async_fn.exists()
+
+
+def test_child_controller(controller, server):
+    child_server = server.create_child_server(prefix="child_")
+    child_controller = child_server.controller
+
+    @child_controller.add("func")
+    def fn_1():
+        return 1
+
+    assert child_controller.func() == [1]
+
+    @child_controller.add("func", clear=True)
+    def fn_2():
+        return 2
+
+    @child_controller.once("func")
+    def once_fn():
+        return 2.5
+
+    @child_controller.set("func")
+    def fn_3():
+        return 3
+
+    assert child_controller.func() == [3, 2, 2.5]
+    assert child_controller.func() == [3, 2]
+    assert child_controller.func() == controller.child_func()

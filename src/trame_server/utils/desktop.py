@@ -130,7 +130,7 @@ class BrowserProcess(Process):
 
         webview.start(
             menu=to_menu(self._menu, self.menu_click),
-            func=lambda: thread.start(),
+            func=thread.start,
             debug=self._debug,
             gui=self._gui,
         )
