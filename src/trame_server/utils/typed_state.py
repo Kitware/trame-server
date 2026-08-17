@@ -5,6 +5,8 @@ from dataclasses import MISSING, Field, fields, is_dataclass
 from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from enum import Enum
+from functools import cache, reduce
+from operator import or_
 from pathlib import Path
 from types import UnionType
 from typing import (
@@ -26,6 +28,52 @@ from trame_server.state import State
 
 T = TypeVar("T")
 V = TypeVar("V")
+
+
+def _resolve_type(annotation, type_var_mapping):
+    if isinstance(annotation, TypeVar):
+        return type_var_mapping.get(annotation, annotation)
+
+    origin = get_origin(annotation)
+    if origin is None:
+        return annotation
+
+    args = tuple(
+        _resolve_type(argument, type_var_mapping) for argument in get_args(annotation)
+    )
+    if origin is UnionType:
+        return reduce(or_, args)
+    return origin[args]
+
+
+@cache
+def _get_resolved_type_hints(dataclass_type):
+    type_var_mapping = {}
+
+    def visit(kls):
+        for base in getattr(kls, "__orig_bases__", ()):
+            origin = get_origin(base)
+            if origin is None:
+                continue
+
+            arguments = get_args(base)
+            parameters = getattr(origin, "__parameters__", ())
+            type_var_mapping.update(
+                zip(
+                    parameters,
+                    (
+                        _resolve_type(argument, type_var_mapping)
+                        for argument in arguments
+                    ),
+                )
+            )
+            visit(origin)
+
+    visit(dataclass_type)
+    return {
+        name: _resolve_type(annotation, type_var_mapping)
+        for name, annotation in get_type_hints(dataclass_type).items()
+    }
 
 
 class _SerializationFailure:
@@ -115,15 +163,20 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
     :param encoders: List of encoders to use when encoding/decoding lists and dicts.
     """
 
+    _DATACLASS_TYPE_KEY = "__trame_typed_state__"
+
     def __init__(self, encoders: list[IStateEncoderDecoder] | None = None):
         self._encoders = encoders or [DefaultEncoderDecoder()]
 
     def encode(self, obj):
         if is_dataclass(obj):
-            return {
+            value = {
                 field.name: self.encode(getattr(obj, field.name))
                 for field in fields(obj)
             }
+
+            value[self._DATACLASS_TYPE_KEY] = self._get_dataclass_type_name(type(obj))
+            return value
 
         if isinstance(obj, dict):
             return {self.encode(key): self.encode(value) for key, value in obj.items()}
@@ -158,20 +211,33 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
         raise TypeError(_error_msg)
 
     def _try_decode(self, obj, obj_type: type):
-        for decode in self._decode_strategies():
-            val = decode(obj, obj_type)
-            if self.is_serialization_success(val):
-                return val
-        return self.failed_serialization()
+        if obj is None:
+            return None
 
-    def _decode_strategies(self) -> list[Callable[[Any, type], Any]]:
-        return [
-            self._decode_dataclass,
-            self._decode_union,
-            self._decode_dict,
-            self._decode_iterable,
-            self._delegate_decode,
-        ]
+        origin = get_origin(obj_type)
+        if isinstance(obj, dict):
+            if (
+                self._DATACLASS_TYPE_KEY in obj
+                or is_dataclass(obj_type)
+                or self._is_union_type(obj_type)
+            ):
+                return self._decode_dataclass_or_union(obj, obj_type)
+            if origin is dict:
+                return self._decode_dict(obj, obj_type)
+        elif self._is_union_type(obj_type):
+            return self._decode_union(obj, obj_type)
+        elif origin in (list, tuple) and self._is_iterable(obj):
+            return self._decode_iterable(obj, obj_type)
+
+        return self._delegate_decode(obj, obj_type)
+
+    def _decode_dataclass_or_union(self, obj, obj_type):
+        val = self._decode_dataclass(obj, obj_type)
+        if self.is_serialization_success(val):
+            return val
+        if self._is_union_type(obj_type):
+            return self._decode_union(obj, obj_type)
+        return self._delegate_decode(obj, obj_type)
 
     def _delegate_decode(self, obj, obj_type: type):
         for encoder in self._encoders:
@@ -181,7 +247,7 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
         return self.failed_serialization()
 
     def _decode_dict(self, obj, obj_type: type):
-        if not isinstance(obj, dict):
+        if not isinstance(obj, dict) or get_origin(obj_type) is not dict:
             return self.failed_serialization()
 
         key_type, value_type = get_args(obj_type)
@@ -191,7 +257,7 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
         }
 
     def _decode_iterable(self, obj, obj_type: type):
-        if not self._is_iterable(obj):
+        if not self._is_iterable(obj) or get_origin(obj_type) not in (list, tuple):
             return self.failed_serialization()
 
         value_type = get_args(obj_type)[0]
@@ -208,15 +274,42 @@ class CollectionEncoderDecoder(IStateEncoderDecoder):
         return self.failed_serialization()
 
     def _decode_dataclass(self, obj, obj_type: type):
+        if not isinstance(obj, dict):
+            return self.failed_serialization()
+
+        if self._DATACLASS_TYPE_KEY in obj:
+            obj_type = self._get_dataclass_type(obj, obj_type)
+
         if not is_dataclass(obj_type):
             return self.failed_serialization()
 
-        field_types = get_type_hints(obj_type)
+        field_types = _get_resolved_type_hints(obj_type)
         decoded_dict = {
             field.name: self._try_decode(obj.get(field.name), field_types[field.name])
             for field in fields(obj_type)
         }
         return obj_type(**decoded_dict)
+
+    @staticmethod
+    def _get_dataclass_type_name(dataclass_type: type) -> str:
+        return f"{dataclass_type.__module__}.{dataclass_type.__qualname__}"
+
+    def _get_dataclass_type(self, obj, obj_type: type) -> type | None:
+        type_name = obj[self._DATACLASS_TYPE_KEY]
+        dataclass_types = (
+            (obj_type,)
+            if is_dataclass(obj_type)
+            else get_args(obj_type)
+            if self._is_union_type(obj_type)
+            else ()
+        )
+        for dataclass_type in dataclass_types:
+            if (
+                is_dataclass(dataclass_type)
+                and self._get_dataclass_type_name(dataclass_type) == type_name
+            ):
+                return dataclass_type
+        return None
 
     @classmethod
     def _is_union_type(cls, obj_type: type):
@@ -261,7 +354,7 @@ class _ProxyField:
         if default_value == MISSING and default_factory != MISSING:
             default_value = default_factory()
         if default_value != MISSING:
-            self._state.setdefault(self._state_id, self._encoder.encode(default_value))
+            self.set_default_value(default_value)
 
     def __get__(self, instance, owner):
         return self.get_value()
@@ -274,7 +367,40 @@ class _ProxyField:
         return self._encoder.decode(value, self._type)
 
     def set_value(self, value):
-        self._state[self._state_id] = self._encoder.encode(value)
+        self._state[self._state_id] = self._encode(value)
+
+    def set_default_value(self, value):
+        self._state.setdefault(self._state_id, self._encode(value))
+
+    def _encode(self, value):
+        return self._encoder.encode(value)
+
+
+class _ProxyDataclassField:
+    """
+    Descriptor for nested dataclass state proxies.
+    """
+
+    def __init__(self, proxy, default, default_factory):
+        self._proxy = proxy
+
+        default_value = default
+        if default_value == MISSING and default_factory != MISSING:
+            default_value = default_factory()
+        if default_value != MISSING:
+            self.set_default_value(default_value)
+
+    def __get__(self, instance, owner):
+        return self._proxy
+
+    def __set__(self, instance, value):
+        TypedState.from_dataclass(self._proxy, value)
+
+    def set_default_value(self, dataclass_obj: T) -> None:
+        for f in fields(TypedState._get_proxy_dataclass_type_or_raise(self._proxy)):
+            value = getattr(dataclass_obj, f.name)
+            proxy_field = vars(type(self._proxy))[f.name]
+            proxy_field.set_default_value(value)
 
 
 class _NameField:
@@ -305,6 +431,7 @@ class TypedState(Generic[T]):
     _STATE_PROXY_DATACLASS_TYPE = "__state_proxy_dataclass_type"
     _STATE_PROXY_FIELD_DICT = "__state_proxy_field_dict"
     _STATE_PROXY_STATE_ID = "__state_proxy_state_id"
+    _DATA_PROXY_CLASS_SUFFIX = "__Proxy"
 
     def __init__(
         self,
@@ -399,7 +526,9 @@ class TypedState(Generic[T]):
                 state_encoder=encoder,
             )
 
-        return cls._build_proxy_cls(dataclass_type, namespace, handler, "__Proxy")
+        return cls._build_proxy_cls(
+            dataclass_type, namespace, handler, cls._DATA_PROXY_CLASS_SUFFIX
+        )
 
     @classmethod
     def _create_state_names_proxy(cls, dataclass_type: Type[T], *, namespace="") -> T:
@@ -445,18 +574,25 @@ class TypedState(Generic[T]):
 
         # Use type hints instead of field.type to avoid lazy evaluation of field.type when used in files containing
         # from __future__ import annotations header.
-        field_types = get_type_hints(dataclass_type)
+        field_types = _get_resolved_type_hints(dataclass_type)
         for f in fields(dataclass_type):
             state_id = f"{prefix}__{f.name}"
             f_type = field_types[f.name]
             if is_dataclass(f_type):
-                field = cls._build_proxy_cls(
+                nested_proxy = cls._build_proxy_cls(
                     f_type, state_id, handler, cls_suffix, inner_field_dict
+                )
+                field = (
+                    _ProxyDataclassField(nested_proxy, f.default, f.default_factory)
+                    if cls_suffix == cls._DATA_PROXY_CLASS_SUFFIX
+                    else nested_proxy
+                )
+                inner_field_dict[cls.get_state_id(nested_proxy, state_id)] = (
+                    nested_proxy
                 )
             else:
                 field = handler(state_id, f, f_type)
-
-            inner_field_dict[cls.get_state_id(field, state_id)] = field
+                inner_field_dict[cls.get_state_id(field, state_id)] = field
             namespace[f.name] = field
 
         if proxy_field_dict is not None:
@@ -510,7 +646,7 @@ class TypedState(Generic[T]):
     @classmethod
     def is_data_proxy_class(cls, instance: T) -> bool:
         return cls.is_proxy_class(instance) and type(instance).__name__.endswith(
-            "__Proxy"
+            cls._DATA_PROXY_CLASS_SUFFIX
         )
 
     @classmethod
@@ -550,11 +686,11 @@ class TypedState(Generic[T]):
             raise TypeError(_error_msg)
 
         for f in fields(dataclass_type):
-            attr = getattr(instance, f.name)
             value = getattr(dataclass_obj, f.name)
+            proxy_field = vars(type(instance))[f.name]
 
-            if cls.is_proxy_class(attr):
-                cls.from_dataclass(attr, value)
+            if isinstance(proxy_field, _ProxyDataclassField):
+                cls.from_dataclass(proxy_field._proxy, value)
             else:
                 setattr(instance, f.name, value)
 

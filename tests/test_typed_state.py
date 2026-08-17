@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timezone
 from enum import Enum, auto
 from pathlib import Path
+from typing import Generic, TypeVar
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
@@ -10,10 +11,13 @@ import pytest
 
 from trame_server import Server
 from trame_server.utils.typed_state import (
+    CollectionEncoderDecoder,
     DefaultEncoderDecoder,
     IStateEncoderDecoder,
     TypedState,
 )
+
+V = TypeVar("V")
 
 
 @pytest.fixture
@@ -46,6 +50,38 @@ class MyBiggerData:
     c: float = 42.0
 
 
+@dataclass
+class GenericItem:
+    value: int
+
+
+@dataclass
+class GenericState(Generic[V]):
+    current_index: int | None = None
+    items: list[V] = field(default_factory=list)
+
+
+@dataclass
+class GenericItemState(GenericState[GenericItem]):
+    pass
+
+
+@dataclass
+class MyTypeA:
+    value_a: int
+
+
+@dataclass
+class MyTypeB:
+    value_b: str
+
+
+@dataclass
+class UnionState:
+    current_index: int | None = None
+    items: list[MyTypeA | MyTypeB] = field(default_factory=list)
+
+
 def test_can_be_constructed_from_simple_dataclass(state):
     typed_state = TypedState(state, MyData)
 
@@ -60,6 +96,56 @@ def test_can_be_constructed_from_nested_dataclass(state):
     assert typed_state.data.my_other_data.a == 1
     typed_state.data.my_other_data.a = 42
     assert state[typed_state.name.my_other_data.a] == 42
+
+
+def test_resolves_inherited_generic_dataclass_field_types(state):
+    typed_state = TypedState(state, GenericItemState)
+
+    typed_state.data.current_index = 0
+    typed_state.data.items = [GenericItem(value=42)]
+
+    assert typed_state.data.current_index == 0
+    _type_key = CollectionEncoderDecoder._DATACLASS_TYPE_KEY
+    assert state[typed_state.name.items] == [
+        {_type_key: "test_typed_state.GenericItem", "value": 42}
+    ]
+    assert typed_state.data.items == [GenericItem(value=42)]
+    assert typed_state.get_dataclass() == GenericItemState(
+        current_index=0, items=[GenericItem(value=42)]
+    )
+
+
+def test_can_deserializes_non_union_dataclass_without_type_discriminator(state):
+    typed_state = TypedState(state, GenericItemState)
+
+    state[typed_state.name.items] = [{"value": 42}]
+
+    assert typed_state.data.items == [GenericItem(value=42)]
+    assert typed_state.get_dataclass() == GenericItemState(
+        items=[GenericItem(value=42)]
+    )
+
+
+def test_can_serializes_union_dataclass_type_in_collection(state):
+    typed_state = TypedState(state, UnionState)
+    expected_items = [
+        MyTypeB(value_b="first"),
+        MyTypeA(value_a=42),
+        MyTypeA(value_a=43),
+        MyTypeB(value_b="last"),
+    ]
+
+    typed_state.data.items = expected_items
+
+    _type_key = CollectionEncoderDecoder._DATACLASS_TYPE_KEY
+    assert state[typed_state.name.items] == [
+        {_type_key: "test_typed_state.MyTypeB", "value_b": "first"},
+        {_type_key: "test_typed_state.MyTypeA", "value_a": 42},
+        {_type_key: "test_typed_state.MyTypeA", "value_a": 43},
+        {_type_key: "test_typed_state.MyTypeB", "value_b": "last"},
+    ]
+    assert typed_state.data.items == expected_items
+    assert typed_state.get_dataclass() == UnionState(items=expected_items)
 
 
 def test_can_handle_namespace(state):
@@ -92,9 +178,14 @@ def test_can_be_set_from_data_class(state):
     assert typed_state.data.my_other_data.b == 43
     assert typed_state.data.c == 44
 
-    TypedState.from_dataclass(typed_state.data.my_other_data, MyData(a=45, b=46))
+    typed_state.data.my_other_data = MyData(a=45, b=46)
     assert typed_state.data.my_other_data.a == 45
     assert typed_state.data.my_other_data.b == 46
+    assert state[typed_state.name.my_other_data.a] == 45
+    assert state[typed_state.name.my_other_data.b] == 46
+    assert typed_state.get_dataclass() == MyBiggerData(
+        my_other_data=MyData(a=45, b=46), c=44
+    )
 
 
 def test_can_be_used_to_connect_to_state_changes(state):
@@ -397,6 +488,21 @@ class DataWithUnionTypes:
     my_optional_enum_list: list[MyEnum | str | None] | None
 
 
+@dataclass
+class DataWithFloatOrFloatList:
+    t: float | list[float]
+
+
+def test_deserializes_float_or_float_list(state):
+    typed_state = TypedState(state, DataWithFloatOrFloatList)
+
+    state[typed_state.name.t] = 42.5
+    assert typed_state.data.t == 42.5
+
+    state[typed_state.name.t] = [1.5, 2.5]
+    assert typed_state.data.t == [1.5, 2.5]
+
+
 def test_handles_union_types_by_order_of_definition(state):
     encode = CustomEnumEncode()
     typed_state = TypedState(state, DataWithUnionTypes, encoders=[encode])
@@ -469,6 +575,26 @@ class SimpleTypes:
 
 
 @dataclass
+class NonDefaultInit:
+    simple_types: SimpleTypes = field(
+        default_factory=lambda: SimpleTypes(
+            my_int=42, my_enum=MyEnum.B, my_path=Path("./shared")
+        )
+    )
+
+
+def test_initializes_nested_dataclass_from_default_factory(state):
+    typed_state = TypedState(state, NonDefaultInit)
+
+    assert typed_state.data.simple_types.my_int == 42
+    assert typed_state.data.simple_types.my_enum == MyEnum.B
+    assert typed_state.data.simple_types.my_path == Path("shared")
+    assert state[typed_state.name.simple_types.my_int] == 42
+    assert state[typed_state.name.simple_types.my_enum] == MyEnum.B.value
+    assert state[typed_state.name.simple_types.my_path] == "shared"
+
+
+@dataclass
 class TypedComposite:
     simple_types: SimpleTypes = field(default_factory=SimpleTypes)
 
@@ -477,6 +603,43 @@ class TypedComposite:
 class DataclassCollections:
     nested_list: list[TypedComposite] = field(default_factory=list)
     nested_dict: dict[str, TypedComposite] = field(default_factory=dict)
+
+
+@dataclass
+class BenchmarkState(Generic[V]):
+    collections: DataclassCollections
+    selected: V | None = None
+
+
+@dataclass
+class BenchmarkTypedState(BenchmarkState[TypedComposite]):
+    pass
+
+
+@pytest.fixture
+def benchmark_data():
+    composites = [
+        TypedComposite(
+            SimpleTypes(
+                my_int=index,
+                my_enum=MyEnum(index % 3 + 1),
+                my_path=Path(f"/path/to/{index}"),
+            )
+        )
+        for index in range(42)
+    ]
+    collections = DataclassCollections(
+        nested_list=composites,
+        nested_dict={f"item-{index}": item for index, item in enumerate(composites)},
+    )
+    return BenchmarkTypedState(collections=collections, selected=composites[0])
+
+
+@pytest.fixture
+def benchmark_typed_state(state, benchmark_data):
+    typed_state = TypedState(state, BenchmarkTypedState)
+    typed_state.set_dataclass(benchmark_data)
+    return typed_state
 
 
 def test_encode_decode_supports_collections_of_nested_dataclass(state):
@@ -512,20 +675,25 @@ def test_encode_decode_supports_collections_of_nested_dataclass(state):
         SimpleTypes(my_int=4, my_enum=MyEnum.A, my_path=Path("/path/to/4"))
     )
 
+    _type_key = CollectionEncoderDecoder._DATACLASS_TYPE_KEY
     assert state[typed_state.name.nested_list] == [
         {
             "simple_types": {
                 "my_int": 1,
                 "my_enum": typed_state.encode(MyEnum.A),
                 "my_path": typed_state.encode("/path/to/1"),
-            }
+                _type_key: "test_typed_state.SimpleTypes",
+            },
+            _type_key: "test_typed_state.TypedComposite",
         },
         {
             "simple_types": {
                 "my_int": 2,
                 "my_enum": typed_state.encode(MyEnum.B),
                 "my_path": typed_state.encode("/path/to/2"),
-            }
+                _type_key: "test_typed_state.SimpleTypes",
+            },
+            _type_key: "test_typed_state.TypedComposite",
         },
     ]
 
@@ -535,14 +703,18 @@ def test_encode_decode_supports_collections_of_nested_dataclass(state):
                 "my_int": 3,
                 "my_enum": typed_state.encode(MyEnum.C),
                 "my_path": typed_state.encode("/path/to/3"),
-            }
+                _type_key: "test_typed_state.SimpleTypes",
+            },
+            _type_key: "test_typed_state.TypedComposite",
         },
         "4": {
             "simple_types": {
                 "my_int": 4,
                 "my_enum": typed_state.encode(MyEnum.A),
                 "my_path": typed_state.encode("/path/to/4"),
-            }
+                _type_key: "test_typed_state.SimpleTypes",
+            },
+            _type_key: "test_typed_state.TypedComposite",
         },
     }
 
@@ -563,3 +735,13 @@ def test_can_supress_change_listeners(state):
 
     state.flush()
     mock.assert_not_called()
+
+
+def test_benchmark_typed_state_serialization(
+    benchmark, benchmark_typed_state, benchmark_data
+):
+    benchmark(benchmark_typed_state.set_dataclass, benchmark_data)
+
+
+def test_benchmark_typed_state_deserialization(benchmark, benchmark_typed_state):
+    benchmark(benchmark_typed_state.get_dataclass)
