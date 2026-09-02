@@ -19,7 +19,7 @@ from .utils.namespace import Translator
 
 logger = logging.getLogger(__name__)
 
-ClientType = Literal["vue2", "vue3"]
+ClientType = Literal["vue2", "vue3", "react"]
 BackendType = Literal["aiohttp", "generic", "tornado", "jupyter"]
 ExecModeType = Literal["main", "desktop", "task", "coroutine"]
 
@@ -105,7 +105,14 @@ class Server:
             self._state = State(
                 self.translator, commit_fn=self._push_state, hot_reload=self.hot_reload
             )
-            for key in ["scripts", "module_scripts", "styles", "vue_use", "mousetrap"]:
+            for key in [
+                "scripts",
+                "module_scripts",
+                "styles",
+                "vue_use",
+                "react_use",
+                "mousetrap",
+            ]:
                 self._state[f"trame__{key}"] = []
             self._state.trame__client_only = ["trame__busy"]
             self._state.trame__busy = 1
@@ -177,6 +184,7 @@ class Server:
           - module_scripts = []    : List all JavaScript URL as type=module to load
           - styles  = []           : List all CSS URL that should be loaded
           - vue_use = ['libName', ('libName2', { **options })]: List Vue plugin to load
+          - react_use = ['libName']: List React registry plugin to load (client_type="react")
           - state = {}             : Set of variable to add to state
           - serve = { data: '/path/on/fs' }: Set of endpoints to serve static content
           - www = '/path/on/fs'    : Path served as main web content
@@ -203,7 +211,7 @@ class Server:
         if "setup" in definitions:
             definitions["setup"](self, **kwargs)
 
-        for key in ["scripts", "module_scripts", "styles", "vue_use"]:
+        for key in ["scripts", "module_scripts", "styles", "vue_use", "react_use"]:
             if key in definitions:
                 self.state[f"trame__{key}"] += definitions[key]
 
@@ -321,7 +329,7 @@ class Server:
 
     @property
     def client_type(self) -> ClientType:
-        """Specify the client type. Either 'vue2' or 'vue3' for now."""
+        """Specify the client type. Either 'vue2', 'vue3' or 'react' for now."""
         if self._client_type is None:
             return DEFAULT_CLIENT_TYPE  # default
         return self._client_type
