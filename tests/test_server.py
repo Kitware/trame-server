@@ -51,6 +51,7 @@ async def test_child_server():
             "trame__styles": [],
             "trame__title": "Trame",
             "trame__vue_use": [],
+            "trame__react_use": [],
         },
     }
 
