@@ -7,7 +7,7 @@ authors = [
 ]
 dependencies = [
     "wslink>=2.5.7,<3",
-    "trame-common>=1.2.3",
+    "trame-common>=1.2.7",
     "more-itertools",
 ]
 requires-python = ">=3.10"
