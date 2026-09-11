@@ -1,4 +1,4 @@
-.. |pypi_download| image:: https://img.shields.io/pypi/dm/trame-server
+.. |pypi_download| image:: https://kitware.github.io/trame/downloads/trame-server.svg
 
 trame-server: server implementation of trame |pypi_download|
 ===========================================================================
