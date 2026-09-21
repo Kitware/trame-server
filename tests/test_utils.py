@@ -40,7 +40,7 @@ def test_version():
 
     assert version.get_version("trame_server") == v_server
     assert version.get_version("trame_client") == v_client
-    assert version.get_version("trame").split(".")[0] == "3"
+    assert version.get_version("trame").split(".")[0] in {"3", "4"}
     assert version.get_version("something_that_does_not_exist") is None
 
 
