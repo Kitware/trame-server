@@ -1,5 +1,6 @@
 import inspect
 from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable
 from contextlib import contextmanager
 from dataclasses import MISSING, Field, fields, is_dataclass
 from datetime import date, datetime, time, timezone
@@ -11,10 +12,7 @@ from pathlib import Path
 from types import UnionType
 from typing import (
     Any,
-    Callable,
     Generic,
-    Iterable,
-    Type,
     TypeVar,
     Union,
     cast,
@@ -65,6 +63,7 @@ def _get_resolved_type_hints(dataclass_type):
                         _resolve_type(argument, type_var_mapping)
                         for argument in arguments
                     ),
+                    strict=False,
                 )
             )
             visit(origin)
@@ -436,7 +435,7 @@ class TypedState(Generic[T]):
     def __init__(
         self,
         state: State,
-        dataclass_type: Type[T],
+        dataclass_type: type[T],
         *,
         namespace="",
         encoders: list[IStateEncoderDecoder] | None = None,
@@ -496,7 +495,7 @@ class TypedState(Generic[T]):
     @classmethod
     def _create_state_proxy(
         cls,
-        dataclass_type: Type[T],
+        dataclass_type: type[T],
         state: State,
         *,
         namespace="",
@@ -531,7 +530,7 @@ class TypedState(Generic[T]):
         )
 
     @classmethod
-    def _create_state_names_proxy(cls, dataclass_type: Type[T], *, namespace="") -> T:
+    def _create_state_names_proxy(cls, dataclass_type: type[T], *, namespace="") -> T:
         """
         Returns a State proxy with the same field structure as the input dataclass and for each field returning the
         fully qualified state id name associated with a dataclass leaf.
@@ -549,7 +548,7 @@ class TypedState(Generic[T]):
     @classmethod
     def _build_proxy_cls(
         cls,
-        dataclass_type: Type[T],
+        dataclass_type: type[T],
         prefix: str,
         handler: Callable[[str, Field, type], Any],
         cls_suffix: str,
@@ -610,14 +609,14 @@ class TypedState(Generic[T]):
         return cast(T, proxy_instance)
 
     @classmethod
-    def _get_proxy_dataclass_type(cls, instance: T) -> Type[T] | None:
+    def _get_proxy_dataclass_type(cls, instance: T) -> type[T] | None:
         """
         :return: dataclass type attached to the input proxy instance.
         """
         return getattr(instance, cls._STATE_PROXY_DATACLASS_TYPE, None)
 
     @classmethod
-    def _get_proxy_dataclass_type_or_raise(cls, instance: T) -> Type[T]:
+    def _get_proxy_dataclass_type_or_raise(cls, instance: T) -> type[T]:
         """
         :return: dataclass type attached to the proxy instance
         :raises: RuntimeError if the input instance is not a proxy.
