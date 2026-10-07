@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 import traceback
+from enum import IntEnum
 
 import aiohttp
 import msgpack
@@ -14,6 +15,14 @@ from .state import State
 MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE") or 4194304)
 
 logger = logging.getLogger(__name__)
+
+
+class ConnectionStatus(IntEnum):
+    """Connection status of a Client"""
+
+    DISCONNECTED = 0
+    CONNECTING = 1
+    CONNECTED = 2
 
 
 class WsLinkSession:
@@ -177,7 +186,7 @@ class Client:
 
     def __init__(self, url=None, config=None, translator=None, hot_reload=False):
         # Network
-        self._connected = 0
+        self._connected = ConnectionStatus.DISCONNECTED
         self._session = None
         self._url = url
         self._config = {} if config is None else config
@@ -192,29 +201,54 @@ class Client:
         )
 
     async def connect(self, url=None, **kwargs):
-        if self._connected:
+        """
+        Connect to the server and process messages until disconnected.
+
+        The client is only reported as connected once authentication
+        succeeded. Raises if the connection or authentication fails.
+        """
+        if self._connected != ConnectionStatus.DISCONNECTED:
             return
-        self._connected = 1
+        self._connected = ConnectionStatus.CONNECTING
 
         config = {**self._config, **kwargs}
         if url is None:
             url = self._url
 
-        async with aiohttp.ClientSession() as session:
-            async with session.ws_connect(url) as ws:
-                self._session = WsLinkSession(ws)
-                self._state.ready()
-                self._session.register_subscription(
-                    "trame.state.topic", self._on_state_update
-                )
-                self._connected = 2
-                task = asynchronous.create_task(self._session.listen())
-                await self._session.auth(**config)
-                await task
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.ws_connect(url) as ws:
+                    self._session = WsLinkSession(ws)
+                    self._state.ready()
+                    self._session.register_subscription(
+                        "trame.state.topic", self._on_state_update
+                    )
+                    listen_task = asynchronous.create_task(self._session.listen())
+                    try:
+                        await self._wait_for_auth(listen_task, config)
+                    except BaseException:
+                        listen_task.cancel()
+                        raise
+                    self._connected = ConnectionStatus.CONNECTED
+                    await listen_task
+        finally:
+            if self._session:
+                self._session.clear_subscriptions()
+                self._session = None
+            self._connected = ConnectionStatus.DISCONNECTED
 
-        self._session.clear_subscriptions()
-        self._session = None
-        self._connected = 0
+    async def _wait_for_auth(self, listen_task, config):
+        auth_response = await self._session.auth(**config)
+        await asyncio.wait(
+            {auth_response, listen_task}, return_when=asyncio.FIRST_COMPLETED
+        )
+        if not auth_response.done():
+            auth_response.cancel()
+            msg = "Connection closed before authentication completed"
+            raise ConnectionError(msg)
+
+        # Raise if authentication failed
+        auth_response.result()
 
     async def disconnect(self):
         if self._session:
@@ -266,6 +300,10 @@ class Client:
         return self._state
 
     async def call_trigger(self, name, args=None, kwargs=None):
+        if self._connected != ConnectionStatus.CONNECTED:
+            msg = f"Client is not connected (status: {self._connected.name})"
+            raise ConnectionError(msg)
+
         if args is None:
             args = []
 
