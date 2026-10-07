@@ -1,6 +1,6 @@
 [run]
 omit = *docs*, *tests*, setup.py
-source = trame_server
+source_pkgs = trame_server
 
 [paths]
 source =
