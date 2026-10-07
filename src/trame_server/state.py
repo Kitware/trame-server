@@ -355,8 +355,12 @@ class State:
                 self._pushed_state[key] = self._pending_update.pop(key)
                 self._suppress_change_stack.on_pending_key_removed(key)
 
-    def update(self, _dict):
-        """Update the current state dict with the provided one"""
+    def update(self, _dict=None, **inline_dict):
+        """
+        Update the current state dict with the provided one either
+        using keyword arguments, a single dict argument or both.
+        """
+        _dict = {**(_dict or {}), **inline_dict}
         _dict = self._translator.translate_dict(_dict)
         self._pending_update.update(_dict)
         for key in _dict:
