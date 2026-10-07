@@ -12,7 +12,7 @@ import more_itertools
 import pytest
 
 from trame_server.ui import VirtualNodeManager
-from trame_server.utils import browser, hot_reload, logger, server
+from trame_server.utils import asynchronous, browser, hot_reload, logger, server
 from trame_server.utils.argument_parser import ArgumentParser
 
 # -----------------------------------------------------------------------------
@@ -133,7 +133,7 @@ def test_open_browser_error(monkeypatch):
     def fail():
         raise RuntimeError
 
-    monkeypatch.setattr(asyncio, "get_event_loop", fail)
+    monkeypatch.setattr(asynchronous, "get_event_loop", fail)
     # Errors are silently ignored
     browser.open_browser(_fake_server())
 

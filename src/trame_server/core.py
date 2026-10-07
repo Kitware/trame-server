@@ -13,7 +13,7 @@ from .http import HttpHeader
 from .protocol import CoreServer
 from .state import State
 from .ui import VirtualNodeManager
-from .utils import share
+from .utils import asynchronous, share
 from .utils.argument_parser import ArgumentParser
 from .utils.namespace import Translator
 
@@ -744,7 +744,7 @@ class Server:
         if exec_mode == "main":
             self._running_stage = 0
             if self.controller.on_server_exited.exists():
-                loop = asyncio.get_event_loop()
+                loop = asynchronous.get_event_loop()
                 for exit_task in self.controller.on_server_exited(
                     **self.state.to_dict()
                 ):
