@@ -267,6 +267,7 @@ def test_reload_recovers_from_errors(reloadable_module, monkeypatch):
             path.write_text("def something_else():\n    pass\n")
         else:
             write(5)
+        return True
 
     monkeypatch.setattr(hot_reload, "_handle_exception", fix_file)
     assert hot_reload.reload(holder.method)() == 5
@@ -324,18 +325,84 @@ def test_hot_reload_decorator_stripping():
     assert hot_reload._get_decorator_name(attr_dec) == "state"
 
 
-def test_handle_exception(monkeypatch):
-    monkeypatch.setattr(sys, "stdin", io.StringIO("\n"))
+class InteractiveInput(io.StringIO):
+    def isatty(self):
+        return True
+
+
+def _handle_exception_output(monkeypatch, stdin):
+    monkeypatch.setattr(sys, "stdin", stdin)
 
     def failing():
         pass
 
+    out, err = io.StringIO(), io.StringIO()
     try:
         msg = "expected"
         raise ValueError(msg)
     except ValueError:
-        out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
-            hot_reload._handle_exception(failing)
-        assert "ValueError: expected" in err.getvalue()
-        assert "press return to continue" in out.getvalue()
+            retry = hot_reload._handle_exception(failing)
+
+    assert "ValueError: expected" in err.getvalue()
+    return retry, out.getvalue()
+
+
+def test_handle_exception_interactive(monkeypatch):
+    retry, output = _handle_exception_output(monkeypatch, InteractiveInput("\n"))
+    assert retry
+    assert "press return to continue" in output
+
+    # EOF (e.g. Ctrl-D) gives up
+    retry, _ = _handle_exception_output(monkeypatch, InteractiveInput(""))
+    assert not retry
+
+
+@pytest.mark.parametrize("stdin", [None, io.StringIO("\n")])
+def test_handle_exception_non_interactive(monkeypatch, stdin):
+    retry, output = _handle_exception_output(monkeypatch, stdin)
+    assert not retry
+    assert "keeping previous version" in output
+    assert "press return" not in output
+
+
+def test_reload_keeps_function_when_non_interactive(reloadable_module, monkeypatch):
+    module, path, _ = reloadable_module
+    holder = module.Holder()
+    path.write_text("def broken(:\n")
+    monkeypatch.setattr(sys, "stdin", io.StringIO(""))
+
+    out, err = io.StringIO(), io.StringIO()
+    with redirect_stdout(out), redirect_stderr(err):
+        reloaded = hot_reload.reload(holder.method)
+
+    assert reloaded == holder.method
+    assert reloaded() == 1
+    assert "SyntaxError" in err.getvalue()
+    # Reported once, not in a loop
+    assert out.getvalue().count("keeping previous version") == 1
+
+
+def test_load_file_waits_for_content(tmp_path, monkeypatch):
+    path = tmp_path / "saving.py"
+    path.write_text("")
+    sleeps = []
+
+    def fake_sleep(delay):
+        sleeps.append(delay)
+        if len(sleeps) == 3:
+            path.write_text("x = 1")
+
+    monkeypatch.setattr(hot_reload.time, "sleep", fake_sleep)
+    assert hot_reload._load_file(path) == "x = 1\n"
+    assert len(sleeps) == 3
+
+
+def test_load_file_gives_up_on_empty_file(tmp_path, monkeypatch):
+    path = tmp_path / "empty.py"
+    path.write_text("")
+    sleeps = []
+    monkeypatch.setattr(hot_reload.time, "sleep", sleeps.append)
+
+    assert hot_reload._load_file(path) == "\n"
+    assert len(sleeps) == hot_reload.EMPTY_FILE_RETRIES
