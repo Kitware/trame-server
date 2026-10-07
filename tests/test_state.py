@@ -168,6 +168,70 @@ def test_dict_api(fake_server):
     assert state.initial == {"a": 1, "b": 20, "c": ["item"]}
 
 
+def test_update_with_dict_or_kwargs(fake_server):
+    server = fake_server
+    state = fake_server.state
+    state.ready()
+
+    # dict argument
+    state.update({"a": 1, "b": 2})
+    assert state.a == 1
+    assert state.b == 2
+    assert state.is_dirty("a", "b")
+    state.flush()
+    assert server.pushed_state["a"] == 1
+    assert server.pushed_state["b"] == 2
+
+    # keyword arguments
+    state.update(a=3, c=4)
+    assert state.a == 3
+    assert state.b == 2
+    assert state.c == 4
+    assert state.is_dirty("a", "c")
+    assert not state.is_dirty("b")
+    state.flush()
+    assert server.pushed_state["a"] == 3
+    assert server.pushed_state["c"] == 4
+
+    # dict and keyword arguments are merged (keywords win)
+    state.update({"a": 10, "d": 6}, a=11, e=7)
+    assert state.a == 11
+    assert state.d == 6
+    assert state.e == 7
+    state.flush()
+    assert server.pushed_state["a"] == 11
+
+    # no argument is a no-op
+    state.update()
+    assert state.to_dict() == {"a": 11, "b": 2, "c": 4, "d": 6, "e": 7}
+
+    # keyword arguments trigger change listeners
+    mock = MagicMock()
+
+    @state.change("a")
+    def on_change(a, **_):
+        mock(a)
+
+    with state:
+        state.update(a=5)
+
+    mock.assert_called_once_with(5)
+
+
+def test_update_with_kwargs_on_namespaced_state(fake_server):
+    server = fake_server
+    translator = Translator(prefix="test_")
+    state = State(translator=translator, commit_fn=server._push_state)
+    state.ready()
+
+    state.update(a=1, b=2)
+    assert state.a == 1
+    assert state.b == 2
+    state.flush()
+    assert server.pushed_state["test_a"] == 1
+    assert server.pushed_state["test_b"] == 2
+
+
 @pytest.mark.asyncio
 async def test_change_detection(fake_server):
     """
