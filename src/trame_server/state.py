@@ -2,8 +2,9 @@ import inspect
 import logging
 import weakref
 from collections import deque
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
-from typing import Any, Iterable, Iterator
+from typing import Any
 
 from .utils import asynchronous, is_dunder, is_private, share
 from .utils.hot_reload import reload
