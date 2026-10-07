@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import warnings
 
 from . import is_dunder, is_private
 
@@ -8,6 +9,7 @@ __all__ = [
     "create_state_queue_monitor_task",
     "create_task",
     "decorate_task",
+    "get_event_loop",
     "handle_task_result",
     "task",
 ]
@@ -24,6 +26,34 @@ def handle_task_result(task: asyncio.Task) -> None:
         logging.exception("Exception raised by task = %r", task)
 
 
+def get_event_loop():
+    """
+    Return the running event loop or, when called outside of one, the event
+    loop of the current thread (creating and setting it if needed).
+
+    Unlike asyncio.get_event_loop(), this works on Python 3.14+ where no loop
+    is implicitly created anymore. This allows scheduling work before the
+    server is started, and mirrors how wslink selects its loop.
+
+    :return: The event loop
+    :rtype: asyncio.AbstractEventLoop
+    """
+    try:
+        return asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+
+    try:
+        with warnings.catch_warnings():
+            # Python 3.12-3.13 warn when implicitly creating a loop
+            warnings.simplefilter("ignore", DeprecationWarning)
+            return asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        return loop
+
+
 def create_task(coroutine, loop=None):
     """
     Create a task from a coroutine while also attaching a done callback so any
@@ -37,7 +67,7 @@ def create_task(coroutine, loop=None):
     :rtype: asyncio.Task
     """
     if loop is None:
-        loop = asyncio.get_event_loop()
+        loop = get_event_loop()
 
     return decorate_task(loop.create_task(coroutine))
 

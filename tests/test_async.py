@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import multiprocessing
 import time
 from concurrent.futures import ProcessPoolExecutor
@@ -153,3 +154,48 @@ def test_state_queue_without_auto_flush():
 
     state.exit()
     assert q.get_nowait() == QUEUE_EXIT
+
+
+@pytest.fixture
+def no_current_loop():
+    from trame_server.utils import asynchronous  # noqa: PLC0415
+
+    asyncio.set_event_loop(None)
+    try:
+        yield asynchronous
+    finally:
+        with contextlib.suppress(RuntimeError):
+            asynchronous.get_event_loop().close()
+        asyncio.set_event_loop(None)
+
+
+def test_get_event_loop_without_loop(no_current_loop):
+    # Must not warn (3.12+) nor raise (3.14+) when no loop exists yet
+    loop = no_current_loop.get_event_loop()
+    assert isinstance(loop, asyncio.AbstractEventLoop)
+    assert not loop.is_closed()
+    # Same loop is reused afterwards
+    assert no_current_loop.get_event_loop() is loop
+
+
+def test_get_event_loop_reuses_current_loop(no_current_loop):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    assert no_current_loop.get_event_loop() is loop
+
+
+def test_create_task_before_loop_is_running(no_current_loop):
+    async def work():
+        return 42
+
+    task = no_current_loop.create_task(work())
+    loop = no_current_loop.get_event_loop()
+    assert task.get_loop() is loop
+    assert loop.run_until_complete(task) == 42
+
+
+@pytest.mark.asyncio
+async def test_get_event_loop_returns_running_loop():
+    from trame_server.utils import asynchronous  # noqa: PLC0415
+
+    assert asynchronous.get_event_loop() is asyncio.get_running_loop()
