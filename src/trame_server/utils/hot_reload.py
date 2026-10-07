@@ -36,6 +36,7 @@ import functools
 import inspect
 import site
 import sys
+import time
 import traceback
 import types
 from pathlib import Path
@@ -62,6 +63,11 @@ SKIP_LAMBDA_FUNCS = True
 # This essentially means to skip any functions that are not located
 # in editable environments.
 SKIP_SITE_PACKAGES = True
+
+# While saving, editors may briefly leave the file empty.
+# Wait up to EMPTY_FILE_RETRIES * EMPTY_FILE_RETRY_DELAY seconds for content.
+EMPTY_FILE_RETRIES = 20
+EMPTY_FILE_RETRY_DELAY = 0.05
 
 
 def hot_reload(func):
@@ -95,6 +101,10 @@ def reload(func, perform_checks=True):
 
     If perform_checks is True, then several checks will be performed beforehand
     to determine whether or not the function should be skipped.
+
+    If reloading fails, the user is asked to fix the code and press return
+    to try again. When stdin is not interactive (or reaches EOF), the error
+    is reported and the original function is returned instead.
     """
     if perform_checks:
         if not isinstance(func, (types.FunctionType, types.MethodType)):
@@ -118,7 +128,8 @@ def reload(func, perform_checks=True):
         try:
             return _reload_func(func)
         except Exception:
-            _handle_exception(func)
+            if not _handle_exception(func):
+                return func
 
 
 def _reload_func(func):
@@ -167,7 +178,7 @@ def _find_function_locals(func):
 
 
 def _recompile_function(func):
-    tree = _parse_func_file_until_successful(func)
+    tree = ast.parse(_load_file(inspect.getfile(func)))
     if not _isolate_function_def(func.__name__, tree):
         path = inspect.getfile(func)
         msg = f"Failed to find '{func.__qualname__}' in file '{path}'"
@@ -176,20 +187,12 @@ def _recompile_function(func):
     return compile(tree, filename="", mode="exec")
 
 
-def _parse_func_file_until_successful(func):
-    path = inspect.getfile(func)
-    while True:
-        source = _load_file(path)
-        try:
-            return ast.parse(source)
-        except SyntaxError:
-            _handle_exception(func)
-
-
 def _load_file(path):
-    src = ""
-    # while loop here since while saving, the file may sometimes be empty.
-    while src == "":
+    src = Path(path).read_text()
+    for _ in range(EMPTY_FILE_RETRIES):
+        if src:
+            break
+        time.sleep(EMPTY_FILE_RETRY_DELAY)
         src = Path(path).read_text()
     return src + "\n"
 
@@ -214,12 +217,22 @@ def _isolate_function_def(funcname, tree):
 
 
 def _handle_exception(func):
+    """Report the current exception and wait for the user to fix the code.
+
+    Return True if the reload should be attempted again, False otherwise.
+    """
     fpath = inspect.getfile(func)
     exc = traceback.format_exc()
     exc = exc.replace('File "<string>"', f'File "{fpath}"')
     sys.stderr.write(exc + "\n")
+
+    if sys.stdin is None or not sys.stdin.isatty():
+        print(f"Hot reload of '{func.__qualname__}' failed, keeping previous version")
+        return False
+
     print(f"Edit '{func.__qualname__}' in '{fpath}' and press return to continue")
-    sys.stdin.readline()
+    # readline() returns an empty string on EOF (e.g. Ctrl-D)
+    return sys.stdin.readline() != ""
 
 
 def _get_decorator_name(dec_node):
