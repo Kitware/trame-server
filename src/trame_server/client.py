@@ -108,13 +108,9 @@ class WsLinkSession:
             "args": [kwargs],
             "kwargs": {},
         }
-        self.in_flight_rpc[key] = resp
 
-        try:
-            packed_wrapper = msgpack.packb(wrapper)
-        except Exception:
-            del wrapper["error"]["data"]
-            packed_wrapper = msgpack.packb(wrapper)
+        packed_wrapper = msgpack.packb(wrapper)
+        self.in_flight_rpc[key] = resp
 
         async with self.attachment_atomic:
             for chunk in generate_chunks(packed_wrapper, MAX_MSG_SIZE):
@@ -127,7 +123,6 @@ class WsLinkSession:
         self.msg_count += 1
         key = f"rpc:{self.client_id}:{self.msg_count}"
         resp = self.loop.create_future()
-        self.in_flight_rpc[key] = resp
         if args is None:
             args = []
         if kwargs is None:
@@ -141,11 +136,8 @@ class WsLinkSession:
             "kwargs": kwargs,
         }
 
-        try:
-            packed_wrapper = msgpack.packb(wrapper)
-        except Exception:
-            del wrapper["error"]["data"]
-            packed_wrapper = msgpack.packb(wrapper)
+        packed_wrapper = msgpack.packb(wrapper)
+        self.in_flight_rpc[key] = resp
 
         async with self.attachment_atomic:
             for chunk in generate_chunks(packed_wrapper, MAX_MSG_SIZE):
