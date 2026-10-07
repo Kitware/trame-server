@@ -90,3 +90,66 @@ async def test_task_decorator():
     assert bg_update == "idle"
     await asyncio.sleep(0.1)
     assert bg_update == "ok"
+
+
+@pytest.mark.asyncio
+async def test_handle_task_result_logs_exception(caplog):
+    from trame_server.utils import asynchronous  # noqa: PLC0415
+
+    async def failing():
+        msg = "task failure"
+        raise ValueError(msg)
+
+    async def forever():
+        await asyncio.sleep(10)
+
+    task = asynchronous.create_task(failing())
+    await asyncio.sleep(0.01)
+    assert "Exception raised by task" in caplog.text
+
+    # Cancellation is silent
+    caplog.clear()
+    task = asynchronous.create_task(forever())
+    await asyncio.sleep(0)
+    task.cancel()
+    await asyncio.sleep(0.01)
+    assert caplog.text == ""
+
+
+@pytest.mark.asyncio
+async def test_task_decorator_schedules_coroutine():
+    from trame_server.utils import asynchronous  # noqa: PLC0415
+
+    results = []
+
+    @asynchronous.task
+    async def run(value):
+        results.append(value)
+
+    run(5)
+    await asyncio.sleep(0.01)
+    assert results == [5]
+
+
+def test_state_queue_without_auto_flush():
+    import queue as std_queue  # noqa: PLC0415
+
+    from trame_server.utils.asynchronous import QUEUE_EXIT, StateQueue  # noqa: PLC0415
+
+    q = std_queue.Queue()
+    state = StateQueue(q, auto_flush=False)
+    assert state._unknown_private is None
+    with pytest.raises(AttributeError):
+        _ = state.__not_existing__
+
+    state.a = 1
+    state.update({"b": 2})
+    assert state.a == 1
+    assert q.empty()
+
+    state.flush()
+    assert q.get_nowait() == {"a": 1, "b": 2}
+    assert state.b == 2
+
+    state.exit()
+    assert q.get_nowait() == QUEUE_EXIT
