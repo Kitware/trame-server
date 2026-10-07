@@ -184,3 +184,87 @@ def test_child_controller(controller, server):
     assert child_controller.func() == [3, 2, 2.5]
     assert child_controller.func() == [3, 2]
     assert child_controller.func() == controller.child_func()
+
+
+def test_trigger_on_method_and_unregister():
+    from trame_server.controller import Controller  # noqa: PLC0415
+
+    controller = Controller()
+
+    class Handler:
+        def on_click(self):
+            return "clicked"
+
+        def on_other(self):
+            return "other"
+
+    handler = Handler()
+    controller.trigger("click")(handler.on_click)
+    controller.trigger("other")(handler.on_other)
+    assert Handler._trame_trigger_method_names == ["on_click", "on_other"]
+    assert controller.trigger_fn("click")() == "clicked"
+
+    # Unregister by function returns its name
+    assert controller.trigger_unregister(handler.on_click) == "click"
+    assert controller.trigger_fn("click") is None
+
+    # Unregister by name returns the function
+    assert controller.trigger_unregister("other") == handler.on_other
+    assert controller.trigger_fn("other") is None
+
+    assert controller.trigger_unregister("missing") is False
+
+
+def test_controller_function_edge_cases():
+    from trame_server.controller import Controller  # noqa: PLC0415
+
+    controller = Controller()
+
+    with pytest.raises(AttributeError):
+        _ = controller.__not_existing__
+
+    # Empty function allowed
+    controller.maybe.enable_empty()
+    assert controller.maybe() is None
+
+    # Discard main function
+    def main():
+        return 1
+
+    controller.main = main
+    assert controller.main() == 1
+    controller.main.discard(main)
+    assert not controller.main.exists()
+
+
+@pytest.mark.asyncio
+async def test_controller_main_with_task_only():
+    from trame_server.controller import Controller  # noqa: PLC0415
+
+    controller = Controller()
+
+    async def task_fn():
+        return "task"
+
+    controller.fn = lambda: "main"
+    controller.fn.add_task(task_fn)
+    result = controller.fn()
+    assert len(result) == 1
+    assert await result[0] == "task"
+
+
+def test_controller_hot_reload():
+    from trame_server.controller import Controller  # noqa: PLC0415
+
+    controller = Controller(hot_reload=True)
+    assert controller.fn.hot_reload
+
+    def hr_main_fn(x):
+        return x + 1
+
+    def hr_added_fn(x):
+        return x * 2
+
+    controller.fn = hr_main_fn
+    controller.fn.add(hr_added_fn)
+    assert controller.fn(3) == [4, 6]

@@ -745,3 +745,66 @@ def test_benchmark_typed_state_serialization(
 
 def test_benchmark_typed_state_deserialization(benchmark, benchmark_typed_state):
     benchmark(benchmark_typed_state.get_dataclass)
+
+
+def test_serialization_failure_equality():
+    failure_a = IStateEncoderDecoder.failed_serialization("a")
+    failure_b = IStateEncoderDecoder.failed_serialization("b")
+    assert failure_a == failure_b
+    assert failure_a != "a"
+    assert hash(failure_a) == hash("a")
+    assert not IStateEncoderDecoder.is_serialization_success(failure_a)
+
+
+def test_default_encoder_decimal():
+    from decimal import Decimal  # noqa: PLC0415
+
+    encoder = DefaultEncoderDecoder()
+    assert encoder.encode(Decimal("1.5")) == "1.5"
+
+
+def test_collection_decoder_failures():
+    decoder = CollectionEncoderDecoder()
+
+    # Invalid inputs for each specialized decoder
+    assert not decoder.is_serialization_success(
+        decoder._decode_dict([1], dict[str, int])
+    )
+    assert not decoder.is_serialization_success(decoder._decode_iterable(1, list[int]))
+    assert not decoder.is_serialization_success(decoder._decode_union(1, int))
+    assert not decoder.is_serialization_success(decoder._decode_dataclass(1, MyData))
+    assert not decoder.is_serialization_success(decoder._decode_dataclass({}, int))
+
+    # Unknown dataclass type discriminator
+    _type_key = CollectionEncoderDecoder._DATACLASS_TYPE_KEY
+    assert decoder._get_dataclass_type({_type_key: "unknown.Type"}, MyData) is None
+
+    # Dict that isn't a dataclass falls back to union / delegate decoding
+    assert decoder.decode({"a": 1}, dict | int) == {"a": 1}
+
+
+def test_class_level_helpers_validate_inputs(state):
+    typed_state = TypedState(state, MyData)
+
+    with pytest.raises(RuntimeError, match="Expected an instance of type __Proxy"):
+        TypedState.as_dataclass(MyData())
+
+    with pytest.raises(TypeError, match="Expected instance of MyData"):
+        TypedState.from_dataclass(typed_state.data, MyBiggerData())
+
+    with pytest.raises(RuntimeError, match="Sub state creation"):
+        typed_state.get_sub_state("not a proxy")
+
+
+def test_can_bind_changes_with_list_of_keys(state):
+    typed_state = TypedState(state, MyData)
+    mock = MagicMock()
+    typed_state.bind_changes({(typed_state.name.a, typed_state.name.b): mock})
+    TypedState.bind_typed_state_change(
+        [typed_state.name.a, typed_state.name.b], mock, state, typed_state.data
+    )
+
+    typed_state.data.a = 5
+    state.flush()
+    assert mock.call_count == 2
+    mock.assert_called_with(5, 2)

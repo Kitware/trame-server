@@ -43,13 +43,11 @@ class WsLinkSession:
         # Error
         if "error" in payload:
             if future:
-                future.set_exception(
-                    payload.get("error", "Server error")
-                )  # May need to wrap in Exception?
+                future.set_exception(Exception(payload.get("error", "Server error")))
             else:
                 print("Server error:", payload.get("error"))
 
-            self.in_flight_rpc.pop(msg_id)
+            self.in_flight_rpc.pop(msg_id, None)
             return
 
         # Normal processing
