@@ -1,14 +1,17 @@
 import asyncio
 import io
+import socket
 from argparse import Namespace
 from contextlib import redirect_stdout
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import aiohttp
 import pytest
 import pytest_asyncio
 from trame.app import asynchronous, get_client, get_server
 
-from trame_server.client import WsLinkSession
+from trame_server.client import ConnectionStatus, WsLinkSession
 from trame_server.protocol import CoreServer
 
 
@@ -30,11 +33,13 @@ async def client(server):
     asynchronous.create_task(client.connect(secret="wslink-secret"))
 
     for _ in range(20):
-        if client._session and client._session.client_id is not None:
+        if client.connected == ConnectionStatus.CONNECTED:
             break
         await asyncio.sleep(0.1)
 
-    assert client.connected == 2
+    # Only reported as connected once authenticated
+    assert client.connected == ConnectionStatus.CONNECTED
+    assert client._session.client_id is not None
     try:
         yield client
     finally:
@@ -260,3 +265,94 @@ async def test_responses_without_pending_future(client):
         session.in_flight_rpc[payload["id"]] = future
         await session.on_msg_complete(payload)
         assert payload["id"] not in session.in_flight_rpc
+
+
+@pytest.mark.asyncio
+async def test_connected_status_follows_authentication(server):
+    client = get_client(f"ws://localhost:{server.port}/ws")
+    assert client.connected == ConnectionStatus.DISCONNECTED
+
+    observed = []
+    task = asynchronous.create_task(client.connect(secret="wslink-secret"))
+    deadline = asyncio.get_running_loop().time() + 5
+    while asyncio.get_running_loop().time() < deadline:
+        status = client.connected
+        client_id = client._session.client_id if client._session else None
+        # Skip samples taken before the task started
+        started = observed or status != ConnectionStatus.DISCONNECTED
+        if started and (not observed or observed[-1][0] != status):
+            observed.append((status, client_id))
+        if status == ConnectionStatus.CONNECTED:
+            break
+        # Sample on every loop iteration to observe each transition
+        await asyncio.sleep(0)
+
+    statuses = [status for status, _ in observed]
+    assert statuses == [ConnectionStatus.CONNECTING, ConnectionStatus.CONNECTED]
+    # client_id is known as soon as we report being connected
+    assert observed[-1][1] is not None
+
+    await client.disconnect()
+    await task
+    assert client.connected == ConnectionStatus.DISCONNECTED
+
+
+@pytest.mark.asyncio
+async def test_connect_authentication_failure(server):
+    client = get_client(f"ws://localhost:{server.port}/ws")
+    with pytest.raises(Exception, match="Authentication failed"):
+        await asyncio.wait_for(client.connect(secret="wrong"), timeout=5)
+
+    assert client.connected == ConnectionStatus.DISCONNECTED
+    assert client._session is None
+
+
+@pytest.mark.asyncio
+async def test_connect_failure_allows_reconnect(server):
+    with socket.socket() as sock:
+        sock.bind(("localhost", 0))
+        closed_port = sock.getsockname()[1]
+
+    client = get_client(f"ws://localhost:{closed_port}/ws")
+    with pytest.raises(aiohttp.ClientConnectionError):
+        await client.connect()
+    assert client.connected == ConnectionStatus.DISCONNECTED
+
+    # Not stuck in CONNECTING, so a new attempt goes through
+    task = asynchronous.create_task(
+        client.connect(f"ws://localhost:{server.port}/ws", secret="wslink-secret")
+    )
+    for _ in range(50):
+        if client.connected == ConnectionStatus.CONNECTED:
+            break
+        await asyncio.sleep(0.1)
+    assert client.connected == ConnectionStatus.CONNECTED
+
+    await client.disconnect()
+    await task
+
+
+@pytest.mark.asyncio
+async def test_connection_closed_before_authentication():
+    client = get_client("ws://unused")
+    auth_response = asyncio.get_running_loop().create_future()
+
+    async def auth(**_):
+        return auth_response
+
+    async def closed():
+        pass
+
+    client._session = SimpleNamespace(auth=auth)
+    listen_task = asyncio.ensure_future(closed())
+
+    with pytest.raises(ConnectionError, match="closed before authentication"):
+        await client._wait_for_auth(listen_task, {})
+    assert auth_response.cancelled()
+
+
+@pytest.mark.asyncio
+async def test_call_trigger_requires_connection():
+    client = get_client("ws://unused")
+    with pytest.raises(ConnectionError, match=r"not connected.*DISCONNECTED"):
+        await client.call_trigger("anything")
