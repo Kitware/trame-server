@@ -59,6 +59,27 @@ async def test_rpc_error_keeps_client_alive(server, client):
 
 
 @pytest.mark.asyncio
+async def test_unserializable_args_raise_serialization_error(server, client):
+    @server.trigger("echo")
+    def echo(value):
+        return value
+
+    pending = dict(client._session.in_flight_rpc)
+
+    with pytest.raises(TypeError, match="can not serialize"):
+        await client.call_trigger("echo", [object()])
+
+    with pytest.raises(TypeError, match="can not serialize"):
+        await client._session.auth(secret=object())
+
+    # Failed requests are not left waiting for a response
+    assert client._session.in_flight_rpc == pending
+
+    # Connection is still usable
+    assert await client.call_trigger("echo", [1]) == 1
+
+
+@pytest.mark.asyncio
 async def test_async_and_missing_trigger(server, client):
     @server.trigger("async_add")
     async def async_add(a, b):
