@@ -38,25 +38,27 @@ class WsLinkSession:
 
         msg_id = payload.get("id")
         msg_type, msg_topic, _ = msg_id.split(":")
-        future = self.in_flight_rpc.get(msg_id)
+        # Remove right away so we never leave a stale entry behind
+        future = self.in_flight_rpc.pop(msg_id, None)
+
+        # Skip futures that were already resolved or cancelled (e.g. timeout)
+        pending = future is not None and not future.done()
 
         # Error
         if "error" in payload:
-            if future:
+            if pending:
                 future.set_exception(Exception(payload.get("error", "Server error")))
-            else:
+            elif future is None:
                 print("Server error:", payload.get("error"))
 
-            self.in_flight_rpc.pop(msg_id, None)
             return
 
         # Normal processing
         msg_result = payload.get("result")
 
         # RPC
-        if msg_type == "rpc":
-            if future:
-                future.set_result(msg_result)
+        if msg_type == "rpc" and pending:
+            future.set_result(msg_result)
 
         # Publish
         if msg_type == "publish" and msg_topic in self.subscriptions:
@@ -73,13 +75,10 @@ class WsLinkSession:
             if msg_id == WsLinkSession.AUTH_ID:
                 self.client_id = msg_result.get("clientID")
                 self.unchunker.set_max_message_size(msg_result.get("maxMsgSize"))
-                future.set_result(self.client_id)
-            else:
-                future.set_result(msg_result)
+                msg_result = self.client_id
 
-        # Clean pending future
-        if future:
-            self.in_flight_rpc.pop(msg_id)
+            if pending:
+                future.set_result(msg_result)
 
     async def listen(self):
         async for msg in self.ws:

@@ -8,6 +8,7 @@ import pytest
 import pytest_asyncio
 from trame.app import asynchronous, get_client, get_server
 
+from trame_server.client import WsLinkSession
 from trame_server.protocol import CoreServer
 
 
@@ -209,3 +210,53 @@ async def test_clear_state_client_cache(server, client):
     await server.network_completion
     await asyncio.sleep(0.1)
     assert client.state.cached == 1
+
+
+@pytest.mark.asyncio
+async def test_late_response_after_timeout_keeps_client_alive(server, client):
+    @server.trigger("slow")
+    async def slow():
+        await asyncio.sleep(0.3)
+        return "late"
+
+    @server.trigger("fast")
+    def fast():
+        return "fast"
+
+    # Cancelling the call also cancels its pending future
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(client.call_trigger("slow"), timeout=0.05)
+
+    # Let the late response arrive
+    await asyncio.sleep(0.5)
+
+    assert client._session.in_flight_rpc == {}
+    assert await client.call_trigger("fast") == "fast"
+
+
+@pytest.mark.asyncio
+async def test_responses_without_pending_future(client):
+    session = client._session
+    client_id = session.client_id
+
+    # System messages that nobody is waiting for
+    await session.on_msg_complete({"id": "system:c0:99", "result": {"x": 1}})
+    await session.on_msg_complete(
+        {
+            "id": WsLinkSession.AUTH_ID,
+            "result": {"clientID": client_id, "maxMsgSize": 1024},
+        }
+    )
+    assert session.client_id == client_id
+
+    # Responses for futures that were cancelled
+    for payload in [
+        {"id": "rpc:x:1", "result": 1},
+        {"id": "rpc:x:1", "error": "oops"},
+        {"id": "system:c0:1", "result": 1},
+    ]:
+        future = session.loop.create_future()
+        future.cancel()
+        session.in_flight_rpc[payload["id"]] = future
+        await session.on_msg_complete(payload)
+        assert payload["id"] not in session.in_flight_rpc
