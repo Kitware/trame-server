@@ -29,9 +29,11 @@ class FirstApp(TrameApp):
         print(self.state.test)
 
     def _build_ui(self, template_name) -> None:
-        with VAppLayout(
-            self.server, template_name=template_name, full_height=True
-        ), v3.VContainer(), v3.VCard(title="This is the first app"):
+        with (
+            VAppLayout(self.server, template_name=template_name, full_height=True),
+            v3.VContainer(),
+            v3.VCard(title="This is the first app"),
+        ):
             v3.VBtn("Test Trigger", click="console.log(test); trame.trigger('test');")
             v3.VBtn("Test Controller", click=self.ctrl.test_controller)
 
@@ -57,9 +59,11 @@ class SecondApp(TrameApp):
         print(self.state.test)
 
     def _build_ui(self, template_name) -> None:
-        with VAppLayout(
-            self.server, template_name=template_name, full_height=True
-        ), v3.VContainer(), v3.VCard(title="This is the second app"):
+        with (
+            VAppLayout(self.server, template_name=template_name, full_height=True),
+            v3.VContainer(),
+            v3.VCard(title="This is the second app"),
+        ):
             v3.VBtn("Test Trigger", click="console.log(test); trame.trigger('test');")
             v3.VBtn("Test Controller", click=self.ctrl.test_controller)
 
