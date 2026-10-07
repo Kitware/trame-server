@@ -190,3 +190,22 @@ def test_configure_auth_key(tmp_path):
         assert CoreServer.authentication_token == "from-file"
     finally:
         CoreServer.authentication_token = previous
+
+
+@pytest.mark.asyncio
+async def test_clear_state_client_cache(server, client):
+    server.state.cached = 1
+    server.state.flush()
+    await server.network_completion
+    await asyncio.sleep(0.1)
+    assert client.state.cached == 1
+
+    # Unknown keys are ignored
+    server.clear_state_client_cache("never_sent", "cached")
+
+    # Once cleared, an unchanged value is sent again
+    client.state._pushed_state["cached"] = 0
+    server.protocol.push_state_change({"cached": 1})
+    await server.network_completion
+    await asyncio.sleep(0.1)
+    assert client.state.cached == 1
