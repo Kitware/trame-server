@@ -178,7 +178,7 @@ class CoreServer(ServerProtocol):
 
     def clear_state_client_cache(self, *keys):
         for k in keys:
-            del self._clients_state[k]
+            self._clients_state.pop(k, None)
 
     # ---------------------------------------------------------------
     # RPCs
