@@ -504,9 +504,17 @@ class Server:
         }
 
     def clear_state_client_cache(self, *state_names):
+        """
+        Forget what was last sent to the client for the given state names,
+        so their next push is sent even if their value did not change.
+
+        :param *state_names: Set of key names as seen by this server.
+        """
         protocol = self.protocol
         if protocol:
-            protocol.clear_state_client_cache(*state_names)
+            protocol.clear_state_client_cache(
+                *[self._translator.translate_key(k) for k in state_names]
+            )
 
     # -------------------------------------------------------------------------
 
