@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-import traceback
 from enum import IntEnum
 
 import aiohttp
@@ -15,6 +14,10 @@ from .state import State
 MAX_MSG_SIZE = int(os.environ.get("WSLINK_MAX_MSG_SIZE") or 4194304)
 
 logger = logging.getLogger(__name__)
+
+_WS_CLOSE_TYPES = frozenset(
+    {aiohttp.WSMsgType.CLOSE, aiohttp.WSMsgType.CLOSING, aiohttp.WSMsgType.CLOSED}
+)
 
 
 class ConnectionStatus(IntEnum):
@@ -58,7 +61,7 @@ class WsLinkSession:
             if pending:
                 future.set_exception(Exception(payload.get("error", "Server error")))
             elif future is None:
-                print("Server error:", payload.get("error"))
+                logger.error("Server error: %s", payload.get("error"))
 
             return
 
@@ -76,8 +79,7 @@ class WsLinkSession:
                 try:
                     fn(event)
                 except Exception:
-                    print("Subscription callback error")
-                    traceback.print_exc()
+                    logger.exception("Subscription callback error (%s)", msg_topic)
 
         # System
         if msg_type == "system":
@@ -91,14 +93,10 @@ class WsLinkSession:
 
     async def listen(self):
         async for msg in self.ws:
-            if msg.type == aiohttp.WSMsgType.CLOSE:
-                print("CLOSE")
-            elif msg.type == aiohttp.WSMsgType.CLOSING:
-                print("CLOSING")
-            elif msg.type == aiohttp.WSMsgType.CLOSED:
-                print("CLOSED")
+            if msg.type in _WS_CLOSE_TYPES:
+                logger.debug("WebSocket %s", msg.type.name)
             elif msg.type == aiohttp.WSMsgType.ERROR:
-                print("ERROR")
+                logger.error("WebSocket error: %s", self.ws.exception())
             elif msg.type == aiohttp.WSMsgType.TEXT:
                 logger.critical("wslink is not expecting text message:\n> %s", msg.data)
             if msg.type == aiohttp.WSMsgType.BINARY:
