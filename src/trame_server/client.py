@@ -107,35 +107,20 @@ class WsLinkSession:
                     await self.on_msg_complete(full_message)
 
     async def auth(self, **kwargs):
-        key = WsLinkSession.AUTH_ID
-        resp = self.loop.create_future()
-        wrapper = {
-            "wslink": "1.0",
-            "id": key,
-            "method": "wslink.hello",
-            "args": [kwargs],
-            "kwargs": {},
-        }
-
-        packed_wrapper = msgpack.packb(wrapper)
-        self.in_flight_rpc[key] = resp
-
-        async with self.attachment_atomic:
-            for chunk in generate_chunks(packed_wrapper, MAX_MSG_SIZE):
-                if self.ws is not None:
-                    await self.ws.send_bytes(chunk)
-
-        return resp
+        return await self._send(WsLinkSession.AUTH_ID, "wslink.hello", [kwargs], {})
 
     async def call(self, method, args=None, kwargs=None):
         self.msg_count += 1
         key = f"rpc:{self.client_id}:{self.msg_count}"
-        resp = self.loop.create_future()
-        if args is None:
-            args = []
-        if kwargs is None:
-            kwargs = {}
+        return await self._send(
+            key,
+            method,
+            [] if args is None else args,
+            {} if kwargs is None else kwargs,
+        )
 
+    async def _send(self, key, method, args, kwargs):
+        """Send a request and return the future resolved by its response"""
         wrapper = {
             "wslink": "1.0",
             "id": key,
@@ -144,7 +129,9 @@ class WsLinkSession:
             "kwargs": kwargs,
         }
 
+        # Only track the request once we know it can be serialized
         packed_wrapper = msgpack.packb(wrapper)
+        resp = self.loop.create_future()
         self.in_flight_rpc[key] = resp
 
         async with self.attachment_atomic:
