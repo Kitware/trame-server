@@ -1,4 +1,5 @@
 import inspect
+import logging
 import os
 from pathlib import Path
 
@@ -9,6 +10,9 @@ from wslink.websocket import ServerProtocol
 
 from trame_server.state import TRAME_NON_INIT_VALUE
 from trame_server.utils import clean_state, logger
+
+# 'logger' is the network exchange logger (--log-network)
+log = logging.getLogger(__name__)
 
 
 class CoreServer(ServerProtocol):
@@ -209,7 +213,7 @@ class CoreServer(ServerProtocol):
         if self.server.controller.on_error.exists():
             self.server.controller.on_error(message)
         else:
-            print(f" JS Error => {message}")
+            log.error("JS Error => %s", message)
 
     # ---------------------------------------------------------------
 
@@ -233,7 +237,7 @@ class CoreServer(ServerProtocol):
                 if inspect.isawaitable(result):
                     result = await result
                 return result
-            print(f"Trigger {name} seems to be missing")
+            log.warning("Trigger %s seems to be missing", name)
 
         return None
 

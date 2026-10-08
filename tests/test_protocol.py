@@ -1,8 +1,7 @@
 import asyncio
-import io
+import logging
 import socket
 from argparse import Namespace
-from contextlib import redirect_stdout
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
@@ -47,6 +46,14 @@ async def client(server):
         await client.disconnect()
 
 
+def _logged(caplog, level, message):
+    """Return the record matching level and message, if any"""
+    for record in caplog.records:
+        if record.levelname == level and record.getMessage() == message:
+            return record
+    return None
+
+
 async def _rpc(client, method, *args):
     return await (await client._session.call(method, list(args)))
 
@@ -86,7 +93,7 @@ async def test_unserializable_args_raise_serialization_error(server, client):
 
 
 @pytest.mark.asyncio
-async def test_async_and_missing_trigger(server, client):
+async def test_async_and_missing_trigger(server, client, caplog):
     @server.trigger("async_add")
     async def async_add(a, b):
         await asyncio.sleep(0.01)
@@ -94,13 +101,12 @@ async def test_async_and_missing_trigger(server, client):
 
     assert await client.call_trigger("async_add", [1, 2]) == 3
 
-    with io.StringIO() as buf, redirect_stdout(buf):
-        assert await client.call_trigger("not_registered") is None
-        assert "Trigger not_registered seems to be missing" in buf.getvalue()
+    assert await client.call_trigger("not_registered") is None
+    assert _logged(caplog, "WARNING", "Trigger not_registered seems to be missing")
 
 
 @pytest.mark.asyncio
-async def test_lifecycle_and_js_error(server, client):
+async def test_lifecycle_and_js_error(server, client, caplog):
     on_custom = MagicMock()
     server.controller.on_custom = on_custom
     await _rpc(client, "trame.lifecycle.update", "custom")
@@ -109,10 +115,9 @@ async def test_lifecycle_and_js_error(server, client):
     # Unknown life cycle name is a no-op
     await _rpc(client, "trame.lifecycle.update", "unknown_cycle")
 
-    # JS error without handler is printed
-    with io.StringIO() as buf, redirect_stdout(buf):
-        await _rpc(client, "trame.error.client", "boom")
-        assert "JS Error => boom" in buf.getvalue()
+    # JS error without handler is logged
+    await _rpc(client, "trame.error.client", "boom")
+    assert _logged(caplog, "ERROR", "JS Error => boom")
 
     # JS error with handler
     on_error = MagicMock()
@@ -150,7 +155,7 @@ async def test_protocol_call(server):
 
 
 @pytest.mark.asyncio
-async def test_client_subscriptions(client):
+async def test_client_subscriptions(client, caplog):
     session = client._session
     received = []
 
@@ -161,17 +166,14 @@ async def test_client_subscriptions(client):
     session.register_subscription("custom.topic", received.append)
     session.register_subscription("custom.topic", broken)
 
-    with io.StringIO() as buf, redirect_stdout(buf):
-        await session.on_msg_complete(
-            {"id": "publish:custom.topic:0", "result": {"x": 1}}
-        )
-        assert "Subscription callback error" in buf.getvalue()
+    await session.on_msg_complete({"id": "publish:custom.topic:0", "result": {"x": 1}})
     assert received == [{"x": 1}]
+    record = _logged(caplog, "ERROR", "Subscription callback error (custom.topic)")
+    assert record.exc_info[0] is ValueError
 
     # Error without matching in-flight rpc
-    with io.StringIO() as buf, redirect_stdout(buf):
-        await session.on_msg_complete({"id": "rpc:x:999", "error": "oops"})
-        assert "Server error: oops" in buf.getvalue()
+    await session.on_msg_complete({"id": "rpc:x:999", "error": "oops"})
+    assert _logged(caplog, "ERROR", "Server error: oops")
 
     # Notification without id is ignored
     await session.on_msg_complete({"result": None})
@@ -379,3 +381,37 @@ async def test_clear_state_client_cache_on_child_server(server, client):
     await server.network_completion
     await asyncio.sleep(0.1)
     assert client.state.child_value == 1
+
+
+class FakeWebSocket:
+    def __init__(self, *msg_types):
+        self._messages = [SimpleNamespace(type=t, data="text") for t in msg_types]
+
+    def __aiter__(self):
+        return self._iterate()
+
+    async def _iterate(self):
+        for msg in self._messages:
+            yield msg
+
+    def exception(self):
+        return RuntimeError("connection reset")
+
+
+@pytest.mark.asyncio
+async def test_listen_logs_websocket_events(caplog):
+    caplog.set_level(logging.DEBUG, logger="trame_server.client")
+    session = WsLinkSession(
+        FakeWebSocket(
+            aiohttp.WSMsgType.TEXT,
+            aiohttp.WSMsgType.ERROR,
+            aiohttp.WSMsgType.CLOSING,
+            aiohttp.WSMsgType.CLOSED,
+        )
+    )
+    await session.listen()
+
+    assert _logged(caplog, "CRITICAL", "wslink is not expecting text message:\n> text")
+    assert _logged(caplog, "ERROR", "WebSocket error: connection reset")
+    assert _logged(caplog, "DEBUG", "WebSocket CLOSING")
+    assert _logged(caplog, "DEBUG", "WebSocket CLOSED")
