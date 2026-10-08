@@ -3,7 +3,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+import aiohttp
 import pytest
+from aiohttp import web
 from trame.app import get_server
 from trame.modules import www
 from wslink import register as export_rpc
@@ -245,3 +247,43 @@ async def test_server_task_cancel_doesnt_hang_ready_future():
     task = server.start(exec_mode="task", port=0)
     task.cancel()
     await asyncio.wait_for(server.ready, timeout=1)
+
+
+def _text_handler(text):
+    async def handler(_request):
+        return web.Response(text=text)
+
+    return handler
+
+
+@pytest.mark.asyncio
+async def test_on_server_bind_routes_take_precedence():
+    server = get_server("test_on_server_bind_routes")
+
+    @server.controller.add("on_server_bind")
+    def add_routes(wslink_server):
+        wslink_server.app.router.add_routes(
+            [
+                web.get("/", _text_handler("custom root")),
+                web.get("/index.html", _text_handler("custom index")),
+                web.get("/api/hello", _text_handler("hello")),
+            ]
+        )
+
+    server.start(exec_mode="task", port=0)
+    assert await server.ready
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            for path, expected in [
+                ("/", "custom root"),
+                ("/index.html", "custom index"),
+                ("/api/hello", "hello"),
+            ]:
+                url = f"http://localhost:{server.port}{path}"
+                async with session.get(url, allow_redirects=False) as response:
+                    assert response.status == 200, path
+                    assert await response.text() == expected
+    finally:
+        await asyncio.sleep(0.1)
+        await server.stop()
