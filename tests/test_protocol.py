@@ -8,6 +8,7 @@ from unittest.mock import MagicMock
 import aiohttp
 import pytest
 import pytest_asyncio
+from aiohttp import web
 from trame.app import asynchronous, get_client, get_server
 
 from trame_server.client import ConnectionStatus, WsLinkSession
@@ -38,12 +39,40 @@ async def client(server):
 
     # Only reported as connected once authenticated
     assert client.connected == ConnectionStatus.CONNECTED
-    assert client._session.client_id is not None
     try:
         yield client
     finally:
         await asyncio.sleep(0.1)
         await client.disconnect()
+
+
+@pytest_asyncio.fixture
+async def session(server):
+    """Raw wslink session recording the state pushed by the server"""
+    async with (
+        aiohttp.ClientSession() as http,
+        http.ws_connect(f"ws://localhost:{server.port}/ws") as ws,
+    ):
+        session = WsLinkSession(ws)
+        session.pushed_states = []
+        session.register_subscription("trame.state.topic", session.pushed_states.append)
+        listen_task = asynchronous.create_task(session.listen())
+        await (await session.auth(secret="wslink-secret"))
+        try:
+            yield session
+        finally:
+            await session.close()
+            await listen_task
+
+
+async def _rpc(session, method, *args):
+    return await (await session.call(method, list(args)))
+
+
+async def _flush(server, state=None):
+    (state or server.state).flush()
+    await server.network_completion
+    await asyncio.sleep(0.1)
 
 
 def _logged(caplog, level, message):
@@ -54,39 +83,33 @@ def _logged(caplog, level, message):
     return None
 
 
-async def _rpc(client, method, *args):
-    return await (await client._session.call(method, list(args)))
-
-
 @pytest.mark.asyncio
-async def test_rpc_error_keeps_client_alive(server, client):
+async def test_rpc_error_keeps_session_alive(server, session):
     with pytest.raises(Exception, match="Unregistered method called"):
-        await _rpc(client, "trame.does.not.exist")
+        await _rpc(session, "trame.does.not.exist")
 
     # The connection must still be usable after an error
     @server.trigger("ping")
     def ping():
         return "pong"
 
-    assert await client.call_trigger("ping") == "pong"
+    assert await _rpc(session, "trame.trigger", "ping", [], {}) == "pong"
 
 
 @pytest.mark.asyncio
-async def test_unserializable_args_raise_serialization_error(server, client):
+async def test_unserializable_args_raise_serialization_error(server, client, session):
     @server.trigger("echo")
     def echo(value):
         return value
-
-    pending = dict(client._session.in_flight_rpc)
 
     with pytest.raises(TypeError, match="can not serialize"):
         await client.call_trigger("echo", [object()])
 
     with pytest.raises(TypeError, match="can not serialize"):
-        await client._session.auth(secret=object())
+        await session.auth(secret=object())
 
     # Failed requests are not left waiting for a response
-    assert client._session.in_flight_rpc == pending
+    assert session.in_flight_rpc == {}
 
     # Connection is still usable
     assert await client.call_trigger("echo", [1]) == 1
@@ -106,46 +129,51 @@ async def test_async_and_missing_trigger(server, client, caplog):
 
 
 @pytest.mark.asyncio
-async def test_lifecycle_and_js_error(server, client, caplog):
+async def test_lifecycle_and_js_error(server, session, caplog):
     on_custom = MagicMock()
     server.controller.on_custom = on_custom
-    await _rpc(client, "trame.lifecycle.update", "custom")
+    await _rpc(session, "trame.lifecycle.update", "custom")
     on_custom.assert_called_once_with()
 
     # Unknown life cycle name is a no-op
-    await _rpc(client, "trame.lifecycle.update", "unknown_cycle")
+    await _rpc(session, "trame.lifecycle.update", "unknown_cycle")
 
     # JS error without handler is logged
-    await _rpc(client, "trame.error.client", "boom")
+    await _rpc(session, "trame.error.client", "boom")
     assert _logged(caplog, "ERROR", "JS Error => boom")
 
     # JS error with handler
     on_error = MagicMock()
     server.controller.on_error = on_error
-    await _rpc(client, "trame.error.client", "boom again")
+    await _rpc(session, "trame.error.client", "boom again")
     on_error.assert_called_once_with("boom again")
 
 
 @pytest.mark.asyncio
-async def test_get_state_and_force_push(server, client):
+async def test_get_state_and_force_push(server, session):
     server.state.forced = 1
-    server.state.flush()
-    await server.network_completion
-    await asyncio.sleep(0.1)
-    assert client.state.forced == 1
+    await _flush(server)
+    assert session.pushed_states == [{"forced": 1}]
 
-    full_state = await _rpc(client, "trame.state.get")
+    full_state = await _rpc(session, "trame.state.get")
     assert full_state["state"]["forced"] == 1
 
-    # Client corrupts its local copy, server forces a resend
-    client.state._pushed_state["forced"] = 0
+    # Unchanged value is not sent again...
+    session.pushed_states.clear()
+    server.state.dirty("forced")
+    await _flush(server)
+    assert session.pushed_states == []
+
+    # ...unless the server forces a resend
     server.force_state_push("forced")
-    await server.network_completion
-    await asyncio.sleep(0.1)
-    assert client.state.forced == 1
+    await _flush(server)
+    assert session.pushed_states == [{"forced": 1}]
 
     # No keys is a no-op
+    session.pushed_states.clear()
     server.force_state_push()
+    await _flush(server)
+    assert session.pushed_states == []
 
 
 @pytest.mark.asyncio
@@ -155,8 +183,8 @@ async def test_protocol_call(server):
 
 
 @pytest.mark.asyncio
-async def test_client_subscriptions(client, caplog):
-    session = client._session
+async def test_session_subscriptions(caplog):
+    session = WsLinkSession(None)
     received = []
 
     def broken(_):
@@ -201,22 +229,18 @@ def test_configure_auth_key(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_clear_state_client_cache(server, client):
+async def test_clear_state_client_cache(server, session):
     server.state.cached = 1
-    server.state.flush()
-    await server.network_completion
-    await asyncio.sleep(0.1)
-    assert client.state.cached == 1
+    await _flush(server)
+    assert session.pushed_states == [{"cached": 1}]
 
     # Unknown keys are ignored
     server.clear_state_client_cache("never_sent", "cached")
 
     # Once cleared, an unchanged value is sent again
-    client.state._pushed_state["cached"] = 0
-    server.protocol.push_state_change({"cached": 1})
-    await server.network_completion
-    await asyncio.sleep(0.1)
-    assert client.state.cached == 1
+    server.state.dirty("cached")
+    await _flush(server)
+    assert session.pushed_states == [{"cached": 1}, {"cached": 1}]
 
 
 @pytest.mark.asyncio
@@ -237,24 +261,22 @@ async def test_late_response_after_timeout_keeps_client_alive(server, client):
     # Let the late response arrive
     await asyncio.sleep(0.5)
 
-    assert client._session.in_flight_rpc == {}
     assert await client.call_trigger("fast") == "fast"
 
 
 @pytest.mark.asyncio
-async def test_responses_without_pending_future(client):
-    session = client._session
-    client_id = session.client_id
+async def test_responses_without_pending_future():
+    session = WsLinkSession(None)
 
     # System messages that nobody is waiting for
     await session.on_msg_complete({"id": "system:c0:99", "result": {"x": 1}})
     await session.on_msg_complete(
         {
             "id": WsLinkSession.AUTH_ID,
-            "result": {"clientID": client_id, "maxMsgSize": 1024},
+            "result": {"clientID": "c1", "maxMsgSize": 1024},
         }
     )
-    assert session.client_id == client_id
+    assert session.client_id == "c1"
 
     # Responses for futures that were cancelled
     for payload in [
@@ -274,25 +296,28 @@ async def test_connected_status_follows_authentication(server):
     client = get_client(f"ws://localhost:{server.port}/ws")
     assert client.connected == ConnectionStatus.DISCONNECTED
 
-    observed = []
+    statuses = []
     task = asynchronous.create_task(client.connect(secret="wslink-secret"))
     deadline = asyncio.get_running_loop().time() + 5
     while asyncio.get_running_loop().time() < deadline:
         status = client.connected
-        client_id = client._session.client_id if client._session else None
         # Skip samples taken before the task started
-        started = observed or status != ConnectionStatus.DISCONNECTED
-        if started and (not observed or observed[-1][0] != status):
-            observed.append((status, client_id))
+        started = statuses or status != ConnectionStatus.DISCONNECTED
+        if started and (not statuses or statuses[-1] != status):
+            statuses.append(status)
         if status == ConnectionStatus.CONNECTED:
             break
         # Sample on every loop iteration to observe each transition
         await asyncio.sleep(0)
 
-    statuses = [status for status, _ in observed]
     assert statuses == [ConnectionStatus.CONNECTING, ConnectionStatus.CONNECTED]
-    # client_id is known as soon as we report being connected
-    assert observed[-1][1] is not None
+
+    # Usable as soon as we report being connected
+    @server.trigger("ping")
+    def ping():
+        return "pong"
+
+    assert await client.call_trigger("ping") == "pong"
 
     await client.disconnect()
     await task
@@ -306,7 +331,6 @@ async def test_connect_authentication_failure(server):
         await asyncio.wait_for(client.connect(secret="wrong"), timeout=5)
 
     assert client.connected == ConnectionStatus.DISCONNECTED
-    assert client._session is None
 
 
 @pytest.mark.asyncio
@@ -336,21 +360,26 @@ async def test_connect_failure_allows_reconnect(server):
 
 @pytest.mark.asyncio
 async def test_connection_closed_before_authentication():
-    client = get_client("ws://unused")
-    auth_response = asyncio.get_running_loop().create_future()
+    async def close_right_away(request):
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+        await ws.close()
+        return ws
 
-    async def auth(**_):
-        return auth_response
+    app = web.Application()
+    app.router.add_get("/ws", close_right_away)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    await web.TCPSite(runner, "localhost", 0).start()
+    port = runner.addresses[0][1]
 
-    async def closed():
-        pass
-
-    client._session = SimpleNamespace(auth=auth)
-    listen_task = asyncio.ensure_future(closed())
-
-    with pytest.raises(ConnectionError, match="closed before authentication"):
-        await client._wait_for_auth(listen_task, {})
-    assert auth_response.cancelled()
+    try:
+        client = get_client(f"ws://localhost:{port}/ws")
+        with pytest.raises(ConnectionError, match="closed before authentication"):
+            await asyncio.wait_for(client.connect(), timeout=5)
+        assert client.connected == ConnectionStatus.DISCONNECTED
+    finally:
+        await runner.cleanup()
 
 
 @pytest.mark.asyncio
@@ -361,26 +390,22 @@ async def test_call_trigger_requires_connection():
 
 
 @pytest.mark.asyncio
-async def test_clear_state_client_cache_on_child_server(server, client):
+async def test_clear_state_client_cache_on_child_server(server, session):
     child_server = server.create_child_server(prefix="child_")
     child_server.state.value = 1
-    child_server.state.flush()
-    await server.network_completion
-    await asyncio.sleep(0.1)
-    assert client.state.child_value == 1
-    assert "child_value" in server.protocol._clients_state
+    await _flush(server, child_server.state)
+    assert session.pushed_states == [{"child_value": 1}]
 
-    # Names are given as seen by the child server, like force_state_push
-    child_server.clear_state_client_cache("value")
-    assert "child_value" not in server.protocol._clients_state
-
-    # Once cleared, an unchanged value is sent again
-    client.state._pushed_state["child_value"] = 0
+    # Unchanged value is not sent again...
     child_server.state.dirty("value")
-    child_server.state.flush()
-    await server.network_completion
-    await asyncio.sleep(0.1)
-    assert client.state.child_value == 1
+    await _flush(server, child_server.state)
+    assert session.pushed_states == [{"child_value": 1}]
+
+    # ...unless cleared, using the names as seen by the child server
+    child_server.clear_state_client_cache("value")
+    child_server.state.dirty("value")
+    await _flush(server, child_server.state)
+    assert session.pushed_states == [{"child_value": 1}, {"child_value": 1}]
 
 
 class FakeWebSocket:
