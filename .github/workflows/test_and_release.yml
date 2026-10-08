@@ -32,6 +32,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # min supported, commonly used (e.g. ParaView), latest
         python-version: ["3.10", "3.12", "3.14"]
         config:
           - { name: "Linux", os: ubuntu-latest }
