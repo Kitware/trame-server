@@ -1,5 +1,4 @@
 import asyncio
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -206,9 +205,9 @@ async def test_server_start_async():
     await child_server.stop()
 
 
-def test_server_start_sync():
-    os.environ["TRAME_ARGS"] = "--banner --no-http"
-    os.environ["TRAME_LOG_NETWORK"] = "trame_net.log"
+def test_server_start_sync(monkeypatch, tmp_path):
+    monkeypatch.setenv("TRAME_ARGS", "--banner --no-http")
+    monkeypatch.setenv("TRAME_LOG_NETWORK", str(tmp_path / "trame_net.log"))
     server = get_server("test_server_start_sync")
     server.serve.update(
         {
