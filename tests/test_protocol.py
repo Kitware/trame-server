@@ -356,3 +356,26 @@ async def test_call_trigger_requires_connection():
     client = get_client("ws://unused")
     with pytest.raises(ConnectionError, match=r"not connected.*DISCONNECTED"):
         await client.call_trigger("anything")
+
+
+@pytest.mark.asyncio
+async def test_clear_state_client_cache_on_child_server(server, client):
+    child_server = server.create_child_server(prefix="child_")
+    child_server.state.value = 1
+    child_server.state.flush()
+    await server.network_completion
+    await asyncio.sleep(0.1)
+    assert client.state.child_value == 1
+    assert "child_value" in server.protocol._clients_state
+
+    # Names are given as seen by the child server, like force_state_push
+    child_server.clear_state_client_cache("value")
+    assert "child_value" not in server.protocol._clients_state
+
+    # Once cleared, an unchanged value is sent again
+    client.state._pushed_state["child_value"] = 0
+    child_server.state.dirty("value")
+    child_server.state.flush()
+    await server.network_completion
+    await asyncio.sleep(0.1)
+    assert client.state.child_value == 1
