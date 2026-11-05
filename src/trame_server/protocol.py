@@ -93,6 +93,7 @@ class CoreServer(ServerProtocol):
 
     def set_server(self, _server):
         self.server._server = _server
+        self.server._bind_mcp(_server)
         if self.server.controller.on_server_bind.exists():
             # wslink registers its static routes on start, so routes added
             # here take precedence over them
@@ -113,6 +114,9 @@ class CoreServer(ServerProtocol):
             # Trigger on_server_ready
             if self.server.controller.on_server_ready.exists():
                 self.server.controller.on_server_ready(**self.server.state.to_dict())
+
+            # Announce agent access (after the connection info printed above)
+            self.server._mcp_ready()
 
             # Mark the server as ready
             if not self.server.ready.done():
