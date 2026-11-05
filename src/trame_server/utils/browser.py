@@ -1,9 +1,11 @@
 from urllib.parse import urlencode
 
+from .server import http_scheme
+
 
 def open_browser(server):
     args = server.cli.parse_known_args()[0]
-    local_url = f"http://{args.host}:{server.port}/"
+    local_url = f"{http_scheme(args)}://{args.host}:{server.port}/"
     query = server.url_query_params
     if query:
         local_url = f"{local_url}?{urlencode(query)}"

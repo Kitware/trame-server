@@ -110,13 +110,15 @@ def _fake_server(
     port=1234,
     hide_secret=False,
     secret=auth.DEFAULT_SECRET,
+    ssl="",
 ):
     cli = ArgumentParser()
     cli.add_argument("--host", default=host)
+    cli.add_argument("--ssl", default=ssl)
     return SimpleNamespace(
         cli=cli,
         port=port,
-        server_options=Namespace(host=host, hide_secret=hide_secret),
+        server_options=Namespace(host=host, hide_secret=hide_secret, ssl=ssl),
         url_query_params=auth.url_query_params(secret),
     )
 
@@ -149,6 +151,31 @@ async def test_open_browser_secret(monkeypatch):
 
     await asyncio.sleep(0.2)
     open_mock.assert_called_once_with("http://localhost:1234/?secret=user+key%26x")
+
+
+@pytest.mark.asyncio
+async def test_open_browser_ssl(monkeypatch):
+    import webbrowser  # noqa: PLC0415
+
+    open_mock = MagicMock()
+    monkeypatch.setattr(webbrowser, "open", open_mock)
+
+    with io.StringIO() as buf, redirect_stdout(buf):
+        browser.open_browser(_fake_server(ssl="adhoc"))
+
+    await asyncio.sleep(0.2)
+    open_mock.assert_called_once_with("https://localhost:1234/")
+
+
+def test_print_informations_ssl(monkeypatch):
+    monkeypatch.setattr(socket, "gethostbyname", lambda _: "10.0.0.1")
+    with io.StringIO() as buf, redirect_stdout(buf):
+        # wslink replaces "adhoc" with the generated (cert, key) files at start
+        server.print_informations(_fake_server(ssl=("cert.pem", "key.pem")))
+        output = buf.getvalue()
+
+    assert "Local:   https://localhost:1234/\n" in output
+    assert "Network: https://10.0.0.1:1234/\n" in output
 
 
 def test_print_informations_secret(monkeypatch):
