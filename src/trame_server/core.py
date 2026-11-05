@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import asyncio
 import inspect
 import logging
@@ -29,6 +30,42 @@ DEFAULT_CLIENT_TYPE: ClientType = "vue3"
 def set_default_client_type(value: ClientType) -> None:
     global DEFAULT_CLIENT_TYPE  # noqa: PLW0603
     DEFAULT_CLIENT_TYPE = value
+
+
+class _MCPTransports(argparse.Action):
+    """Parse ``--mcp-transport``, which is comma-separated and repeatable. Each name
+    is checked as it is parsed, so that a wrong one fails like any other wrong
+    value."""
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        from .mcp.core import TRANSPORTS  # noqa: PLC0415
+
+        names = [*(getattr(namespace, self.dest, None) or ())]
+        names += [n.strip() for n in values.split(",") if n.strip()]
+        unknown = [n for n in names if n not in (*TRANSPORTS, "none")]
+        if unknown:
+            parser.error(
+                f"{option_string}: unknown transport {unknown[0]!r} "
+                f"(choose from {', '.join(TRANSPORTS)}, or none)"
+            )
+        if "none" in names and len(set(names)) > 1:
+            parser.error(f"{option_string}: none can't be combined with a transport")
+        if getattr(namespace, "mcp_no_transport", False) and names != ["none"]:
+            parser.error(f"{option_string}: --no-mcp-transport serves none")
+        setattr(namespace, self.dest, tuple(dict.fromkeys(names)))
+
+
+class _NoMCPTransport(argparse.Action):
+    """Parse ``--no-mcp-transport``, which contradicts a ``--mcp-transport`` that
+    names a transport, whichever comes first."""
+
+    def __init__(self, option_strings, dest, **kwargs):
+        super().__init__(option_strings, dest, nargs=0, **kwargs)
+
+    def __call__(self, parser, namespace, _values, option_string=None):
+        if (getattr(namespace, "mcp_transport", None) or ("none",)) != ("none",):
+            parser.error(f"{option_string}: --mcp-transport names a transport")
+        setattr(namespace, self.dest, True)
 
 
 class Server:
@@ -80,6 +117,13 @@ class Server:
         self._root_protocol = None
         self._protocols_to_configure = []
 
+        # Agents (MCP): created on first access to self.mcp, root only
+        self._mcp = None
+        self._child_mcp = None  # a child's view of its root's
+        self._mcp_bound = False
+        self._mcp_endpoint_mounted = False
+        self._server_options = None
+
         # ENV variable mapping settings
         self.hot_reload = "--hot-reload" in sys.argv or bool(
             os.getenv("TRAME_HOT_RELOAD", None)
@@ -103,7 +147,10 @@ class Server:
         # Shared state + reserve internal keys
         if parent_server is None:
             self._state = State(
-                self.translator, commit_fn=self._push_state, hot_reload=self.hot_reload
+                self.translator,
+                commit_fn=self._push_state,
+                hot_reload=self.hot_reload,
+                get_mcp=self._get_mcp,
             )
             for key in [
                 "scripts",
@@ -124,6 +171,7 @@ class Server:
                 internal=parent_server._state,
                 commit_fn=self._push_state,
                 hot_reload=self.hot_reload,
+                get_mcp=self._get_mcp,
             )
 
         # Controller
@@ -420,6 +468,59 @@ class Server:
             action="store_true",
         )
 
+        # Agents (MCP)
+        self._cli_parser.add_argument(
+            "--mcp",
+            dest="mcp",
+            action=argparse.BooleanOptionalAction,
+            default=None,
+            help="""Turn agent access through MCP on or off. --no-mcp holds for the
+                    whole run: no transport is served and agents in the process
+                    are refused too.""",
+        )
+        self._cli_parser.add_argument(
+            "--mcp-transport",
+            dest="mcp_transport",
+            action=_MCPTransports,
+            metavar="TRANSPORT",
+            default=None,
+            help="""How agents outside the process connect at start, instead of
+                    the application's choice: http, or none for agents in the
+                    process only. Comma-separated, repeatable. The application
+                    may change it once running.""",
+        )
+        self._cli_parser.add_argument(
+            "--no-mcp-transport",
+            dest="mcp_no_transport",
+            action=_NoMCPTransport,
+            default=False,
+            help="""Serve no transport for the whole run, so that only agents in
+                    the process can connect, when access is on.""",
+        )
+        self._cli_parser.add_argument(
+            "--mcp-http-token",
+            dest="mcp_http_token",
+            metavar="TOKEN",
+            help="Bearer token required on the HTTP transport (or set TRAME_MCP_HTTP_TOKEN)",
+        )
+        self._cli_parser.add_argument(
+            "--mcp-log",
+            dest="mcp_log",
+            action="store_true",
+            help="""Log what agents call, at INFO on the trame_server.mcp loggers
+                    (or set TRAME_MCP_LOG)""",
+        )
+        self._cli_parser.add_argument(
+            "--mcp-deny",
+            dest="mcp_deny",
+            action="append",
+            metavar="PERMISSION",
+            default=None,
+            help="""Deny agents these permissions for the whole run: the application
+                    cannot allow them again. Comma-separated, repeatable (or set
+                    TRAME_MCP_DENY)""",
+        )
+
         CoreServer.add_arguments(self._cli_parser)
 
         return self._cli_parser
@@ -441,6 +542,58 @@ class Server:
         :rtype: trame_server.state.State
         """
         return self._context
+
+    @property
+    def mcp(self):
+        """
+        The MCP server agents connect to, created on first access. A child server
+        shares its root's, and the names it exposes objects under go through its
+        translator.
+
+        :return: The server MCP
+        :rtype: trame_server.mcp.MCP
+        """
+        if self.root_server != self:
+            if self._child_mcp is None:
+                from .mcp.core import ChildMCP  # noqa: PLC0415
+
+                self._child_mcp = ChildMCP(self.root_server.mcp, self.translator)
+            return self._child_mcp
+
+        if self._mcp is None:
+            from .mcp import MCP  # noqa: PLC0415
+
+            self._mcp = MCP(self)
+        return self._mcp
+
+    def _get_mcp(self):
+        return self.mcp
+
+    def _bind_mcp(self, wslink_server):
+        """Called once the web server is bound. Mount the MCP endpoint, whether or not
+        self.mcp exists yet or serves http now, since routes freeze at start and the
+        app may add the transport later. Only --no-mcp and --no-mcp-transport leave it
+        out."""
+        from .mcp.core import transports_withheld  # noqa: PLC0415
+
+        self._mcp_bound = True
+        if not transports_withheld(self._server_options):
+            from .mcp.endpoint import mount  # noqa: PLC0415
+
+            self._mcp_endpoint_mounted = mount(self, wslink_server)
+        if self._mcp is not None:
+            self._mcp._start()
+
+    def _mcp_ready(self):
+        """Called when the server is ready: announce agent access when it is live."""
+        if self._mcp is not None:
+            self._mcp._on_ready()
+            if self._mcp._exposes_anything():
+                return
+        if getattr(self._server_options, "mcp", None):
+            logging.getLogger("trame_server.mcp").warning(
+                "--mcp is given, but this app exposes nothing to agents"
+            )
 
     @property
     def controller(self) -> Controller:

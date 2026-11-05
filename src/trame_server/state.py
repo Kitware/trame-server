@@ -180,8 +180,12 @@ class State:
         commit_fn=None,
         hot_reload=False,
         ready=False,
+        get_mcp=None,
     ):
         self._push_state_fn = commit_fn
+        # Returns the server's MCP; None for a state agents never see
+        # (server.context)
+        self._get_mcp = get_mcp
         self._hot_reload = hot_reload
         self._translator = translator or Translator()
         self._modified_keys = share(internal, "_modified_keys", set())
@@ -515,6 +519,46 @@ class State:
             return func
 
         return register_change_callback
+
+    # -------------------------------------------------------------------------
+    # Agents (MCP)
+    # -------------------------------------------------------------------------
+
+    def _mcp(self):
+        if self._get_mcp is None:
+            msg = (
+                "This state cannot be exposed to agents (server.context is "
+                "server-only); expose keys of server.state instead"
+            )
+            raise RuntimeError(msg)
+        return self._get_mcp()
+
+    def mcp_expose(
+        self, name, *, type=None, schema=None, description=None, read_only=False
+    ):
+        """
+        Expose a state key to agents, as a property of the ``state`` object.
+        Writes are checked against ``type`` and ``schema`` and applied inside
+        ``with state:``, so ``@state.change`` reactions run and browsers update.
+        On a child server the key is translated: agents see the real key.
+
+        :param name: the state key
+        :param type: Python type of its values, e.g. ``int`` or ``list[float]``
+        :param schema: extra JSON Schema keywords (``minimum``, ``enum``, ...)
+        :param description: what agents read about it
+        :param read_only: agents may read it but not write it
+        """
+        self._mcp()._expose_state(
+            self._translator.translate_key(name),
+            type=type,
+            schema=schema,
+            description=description,
+            read_only=read_only,
+        )
+
+    def mcp_unexpose(self, *names):
+        """Withdraw state keys from agents."""
+        self._mcp()._unexpose_state(*self._translator.translate_list(names))
 
     @contextmanager
     def suppress_change_listeners(self, *keys: str):
