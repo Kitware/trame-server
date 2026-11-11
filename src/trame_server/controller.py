@@ -65,8 +65,15 @@ class Controller:
     >>> ctrl.on_data_change.clear(set_only=True)  # add, remove, discard, clear
     """
 
-    def __init__(self, translator=None, internal=None, hot_reload=False):
+    def __init__(
+        self, translator=None, internal=None, hot_reload=False, exception_handler=None
+    ):
         super().__setattr__("__trame_hot_reload__", hot_reload)
+        # Child controllers always report to the root controller handler
+        super().__setattr__(
+            "_exception_handler",
+            share(internal, "_exception_handler", exception_handler),
+        )
         super().__setattr__("_translator", translator or Translator())
         super().__setattr__("_triggers", share(internal, "_triggers", {}))
         super().__setattr__(
@@ -387,9 +394,7 @@ class ControllerFunction:
 
         # Schedule any task
         for task_fn in list(self.task_funcs):
-            results.append(
-                asynchronous.create_task(_safe_call(task_fn, *args, **kwargs))
-            )
+            results.append(self._create_task(_safe_call(task_fn, *args, **kwargs)))
 
         # Figure out return
         if self.func is None:
@@ -399,6 +404,34 @@ class ControllerFunction:
         if len(self.task_funcs):
             return results
         return result
+
+    def _create_task(self, coroutine):
+        task = asynchronous.get_event_loop().create_task(coroutine)
+        task.add_done_callback(self._on_task_done)
+        return task
+
+    def _on_task_done(self, task):
+        if task.cancelled():
+            return
+
+        exception = task.exception()
+        if exception is None:
+            return
+
+        # Never forward failures of on_exception itself to avoid infinite loops
+        handler = self.controller._exception_handler
+        if handler is not None and self.name != "on_exception":
+            try:
+                if handler(exception):
+                    return
+            except Exception:
+                logger.exception("Exception handler failed while reporting")
+
+        logger.error(
+            "Exception raised by %s task",
+            self.name,
+            exc_info=(type(exception), exception, exception.__traceback__),
+        )
 
     def once(self, func):
         """

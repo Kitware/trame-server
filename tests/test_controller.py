@@ -268,3 +268,180 @@ def test_controller_hot_reload():
     controller.fn = hr_main_fn
     controller.fn.add(hr_added_fn)
     assert controller.fn(3) == [4, 6]
+
+
+# -----------------------------------------------------------------------------
+# Task exception forwarding
+# -----------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_controller_task_exception_forwarded_to_handler(caplog):
+    from trame_server.controller import Controller  # noqa: PLC0415
+
+    reported = []
+
+    def handler(exception):
+        reported.append(exception)
+        return True
+
+    controller = Controller(exception_handler=handler)
+
+    async def fail():
+        msg = "task boom"
+        raise ValueError(msg)
+
+    controller.fn.add_task(fail)
+    tasks = controller.fn()
+    await asyncio.gather(*tasks, return_exceptions=True)
+    await asyncio.sleep(0)
+
+    assert [str(e) for e in reported] == ["task boom"]
+    assert not any(r.levelname == "ERROR" for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_controller_task_exception_logged_without_handler(caplog):
+    from trame_server.controller import Controller  # noqa: PLC0415
+
+    controller = Controller()
+
+    async def fail():
+        raise ValueError()
+
+    controller.fn.add_task(fail)
+    tasks = controller.fn()
+    await asyncio.gather(*tasks, return_exceptions=True)
+    await asyncio.sleep(0)
+
+    records = [
+        r
+        for r in caplog.records
+        if r.levelname == "ERROR" and "Exception raised by fn task" in r.message
+    ]
+    assert len(records) == 1
+    assert records[0].exc_info[0] is ValueError
+
+
+@pytest.mark.asyncio
+async def test_controller_task_exception_logged_when_handler_declines(caplog):
+    from trame_server.controller import Controller  # noqa: PLC0415
+
+    reported = []
+
+    def handler(exception):
+        reported.append(exception)
+        return False
+
+    controller = Controller(exception_handler=handler)
+
+    async def fail():
+        raise ValueError()
+
+    controller.fn.add_task(fail)
+    await asyncio.gather(*controller.fn(), return_exceptions=True)
+    await asyncio.sleep(0)
+
+    assert len(reported) == 1
+    assert any(
+        r.levelname == "ERROR" and "Exception raised by fn task" in r.message
+        for r in caplog.records
+    )
+
+
+@pytest.mark.asyncio
+async def test_controller_task_handler_failure_is_logged(caplog):
+    from trame_server.controller import Controller  # noqa: PLC0415
+
+    def handler(exception):
+        raise RuntimeError() from exception
+
+    controller = Controller(exception_handler=handler)
+
+    async def fail():
+        raise ValueError()
+
+    controller.fn.add_task(fail)
+    await asyncio.gather(*controller.fn(), return_exceptions=True)
+    await asyncio.sleep(0)
+
+    assert any("Exception handler failed" in r.message for r in caplog.records)
+    assert any("Exception raised by fn task" in r.message for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_controller_task_cancelled_is_ignored(caplog):
+    from trame_server.controller import Controller  # noqa: PLC0415
+
+    reported = []
+    controller = Controller(exception_handler=reported.append)
+
+    async def wait_forever():
+        await asyncio.sleep(10)
+
+    controller.fn.add_task(wait_forever)
+    (task,) = controller.fn()
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
+    await asyncio.sleep(0)
+
+    assert reported == []
+    assert not any(r.levelname == "ERROR" for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_server_controller_task_exception_forwarded_to_on_exception():
+    from trame_server import Server  # noqa: PLC0415
+
+    server = Server()
+    child = server.create_child_server(prefix="child_")
+
+    reported = []
+    server.controller.on_exception.add(reported.append)
+
+    async def fail():
+        msg = "root"
+        raise ValueError(msg)
+
+    async def child_fail():
+        msg = "child"
+        raise ValueError(msg)
+
+    server.controller.fn.add_task(fail)
+    child.controller.fn.add_task(child_fail)
+
+    await asyncio.gather(*server.controller.fn(), return_exceptions=True)
+    await asyncio.gather(*child.controller.fn(), return_exceptions=True)
+    await asyncio.sleep(0)
+
+    assert [str(e) for e in reported] == ["root", "child"]
+
+
+@pytest.mark.asyncio
+async def test_failing_on_exception_task_is_not_forwarded_to_itself(caplog):
+    from trame_server import Server  # noqa: PLC0415
+
+    server = Server()
+    calls = []
+
+    async def failing_on_exception(exception):
+        calls.append(exception)
+        msg = "on_exception failed"
+        raise RuntimeError(msg)
+
+    server.controller.on_exception.add_task(failing_on_exception)
+
+    async def fail():
+        raise ValueError()
+
+    server.controller.fn.add_task(fail)
+    await asyncio.gather(*server.controller.fn(), return_exceptions=True)
+    for _ in range(5):
+        await asyncio.sleep(0)
+
+    # on_exception called once for the original error, never for its own failure
+    assert len(calls) == 1
+    assert isinstance(calls[0], ValueError)
+    assert any(
+        "Exception raised by on_exception task" in r.message for r in caplog.records
+    )
