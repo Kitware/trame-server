@@ -103,7 +103,10 @@ class Server:
         # Shared state + reserve internal keys
         if parent_server is None:
             self._state = State(
-                self.translator, commit_fn=self._push_state, hot_reload=self.hot_reload
+                self.translator,
+                commit_fn=self._push_state,
+                hot_reload=self.hot_reload,
+                exception_handler=self._handle_exception,
             )
             for key in [
                 "scripts",
@@ -138,7 +141,11 @@ class Server:
 
         # Server only context
         if parent_server is None:
-            self._context = State(self.translator, hot_reload=self.hot_reload)
+            self._context = State(
+                self.translator,
+                hot_reload=self.hot_reload,
+                exception_handler=self._handle_exception,
+            )
         else:
             self._context = State(
                 self.translator,
@@ -148,6 +155,19 @@ class Server:
 
         # UI (FIXME): use for translator
         self._ui = share(parent_server, "_ui", VirtualNodeManager(self, vn_constructor))
+
+    def _handle_exception(self, exception) -> bool:
+        """
+        Forward an exception raised by a state/context change listener
+        to controller.on_exception (i.e. @life_cycle.exception).
+
+        :return: True if the exception was forwarded, False otherwise
+        """
+        on_exception = self.controller.on_exception
+        if on_exception.exists() or on_exception.funcs_once:
+            on_exception(exception)
+            return True
+        return False
 
     def create_child_server(self, translator=None, prefix=None) -> Server:
         translator = translator or Translator(prefix=prefix)
