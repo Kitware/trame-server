@@ -73,6 +73,7 @@ xfail_strict = true
 minversion = "6.0"
 addopts = ["-ra", "--strict-config", "--strict-markers"]
 filterwarnings = ["error"]
+asyncio_default_fixture_loop_scope = "function"
 testpaths = [
     "tests",
 ]
