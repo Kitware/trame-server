@@ -131,7 +131,11 @@ class Server:
 
         # Controller
         if parent_server is None:
-            self._controller = Controller(self.translator, hot_reload=self.hot_reload)
+            self._controller = Controller(
+                self.translator,
+                hot_reload=self.hot_reload,
+                exception_handler=self._handle_exception,
+            )
         else:
             self._controller = Controller(
                 self.translator,
@@ -159,7 +163,8 @@ class Server:
     def _handle_exception(self, exception) -> bool:
         """
         Forward an exception raised by a state/context change listener
-        to controller.on_exception (i.e. @life_cycle.exception).
+        or a controller task to controller.on_exception
+        (i.e. @life_cycle.exception).
 
         :return: True if the exception was forwarded, False otherwise
         """
