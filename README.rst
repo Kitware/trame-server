@@ -26,8 +26,7 @@ trame-server can be installed with `pip <https://pypi.org/project/trame-server/>
 
 .. code-block:: bash
 
-    pip install --upgrade trame-server
-
+    pip install trame-server
 
 Usage
 -----------------------------------------------------------
@@ -83,3 +82,23 @@ Enjoying trame?
 -----------------------------------------------------------
 
 Share your experience `with a testimonial <https://github.com/Kitware/trame/issues/18>`_ or `with a brand approval <https://github.com/Kitware/trame/issues/19>`_.
+
+Development
+-----------------------------------------------------------
+
+Install the library in dev mode
+
+.. code-block:: bash
+
+    # Create venv and install all dependencies
+    uv sync --all-extras --dev
+
+    # Activate environment
+    source .venv/bin/activate
+
+    # Install commit analysis
+    pre-commit install
+    pre-commit install --hook-type commit-msg
+
+    # Run pre-commit checks
+    pre-commit run --all-files

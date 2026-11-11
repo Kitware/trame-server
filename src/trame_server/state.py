@@ -180,8 +180,13 @@ class State:
         commit_fn=None,
         hot_reload=False,
         ready=False,
+        exception_handler=None,
     ):
         self._push_state_fn = commit_fn
+        # Child states always report to the root state handler
+        self._exception_handler = share(
+            internal, "_exception_handler", exception_handler
+        )
         self._hot_reload = hot_reload
         self._translator = translator or Translator()
         self._modified_keys = share(internal, "_modified_keys", set())
@@ -444,12 +449,40 @@ class State:
             try:
                 coroutine = callback(**reverse_translated_state)
                 if inspect.isawaitable(coroutine):
-                    asynchronous.create_task(coroutine)
+                    task = asynchronous.get_event_loop().create_task(coroutine)
+                    task.add_done_callback(self._on_change_task_done)
             except Exception as e:
-                logger.warning("@change callback exception ignored: %s", e)
+                self._report_exception(e)
 
         self._state_listeners.clear()
         return _keys
+
+    def _report_exception(self, exception):
+        """
+        Forward an exception raised by a @change callback to the exception
+        handler (server.controller.on_exception) when available, otherwise
+        log it so it does not go unnoticed.
+        """
+        if self._exception_handler is not None:
+            try:
+                if self._exception_handler(exception):
+                    return
+            except Exception:
+                logger.exception("Exception handler failed while reporting")
+
+        logger.warning(
+            "@change callback exception ignored: %s",
+            exception,
+            exc_info=(type(exception), exception, exception.__traceback__),
+        )
+
+    def _on_change_task_done(self, task):
+        if task.cancelled():
+            return
+
+        exception = task.exception()
+        if exception is not None:
+            self._report_exception(exception)
 
     def flush(self):
         """
