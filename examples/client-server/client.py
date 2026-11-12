@@ -7,6 +7,7 @@ from trame_server.client import Client
 server = get_server(client_type="vue2")
 state, ctrl = server.state, server.controller
 server.cli.add_argument("--url")
+server.cli.add_argument("--secret", help="--authKey used by the remote server")
 
 client = Client()
 
@@ -74,9 +75,9 @@ def on_attachment(attch_data, **_):
 
 @ctrl.add("on_server_ready")
 def connect_to_server(**_):
-    url = server.cli.parse_args().url
-    print(f"Client connect to {url}")
-    asynchronous.create_task(client.connect(url, secret="wslink-secret"))
+    args = server.cli.parse_args()
+    print(f"Client connect to {args.url}")
+    asynchronous.create_task(client.connect(args.url, secret=args.secret))
 
 
 with SinglePageLayout(server) as layout:

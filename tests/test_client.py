@@ -5,6 +5,8 @@ import pytest
 import pytest_asyncio
 from trame.app import asynchronous, get_client, get_server
 
+from trame_server.protocol import CoreServer
+
 
 @pytest_asyncio.fixture
 async def server():
@@ -23,7 +25,7 @@ async def server():
 async def client(server):
     url = f"ws://localhost:{server.port}/ws"
     client = get_client(url)
-    asynchronous.create_task(client.connect(secret="wslink-secret"))
+    asynchronous.create_task(client.connect(secret=CoreServer.authentication_token))
 
     for _ in range(10):
         if client.connected == 2:
