@@ -460,21 +460,20 @@ class State:
     def _report_exception(self, exception):
         """
         Forward an exception raised by a @change callback to the exception
-        handler (server.controller.on_exception) when available, otherwise
-        log it so it does not go unnoticed.
+        handler (server.controller.on_exception) when available, but also
+        always log it so it does not go unnoticed.
         """
-        if self._exception_handler is not None:
-            try:
-                if self._exception_handler(exception):
-                    return
-            except Exception:
-                logger.exception("Exception handler failed while reporting")
-
-        logger.warning(
+        logger.error(
             "@change callback exception ignored: %s",
             exception,
             exc_info=(type(exception), exception, exception.__traceback__),
         )
+
+        if self._exception_handler is not None:
+            try:
+                self._exception_handler(exception)
+            except Exception:
+                logger.exception("Exception handler failed while reporting")
 
     def _on_change_task_done(self, task):
         if task.cancelled():

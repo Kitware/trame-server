@@ -418,20 +418,20 @@ class ControllerFunction:
         if exception is None:
             return
 
-        # Never forward failures of on_exception itself to avoid infinite loops
-        handler = self.controller._exception_handler
-        if handler is not None and self.name != "on_exception":
-            try:
-                if handler(exception):
-                    return
-            except Exception:
-                logger.exception("Exception handler failed while reporting")
-
+        # Always log exception
         logger.error(
             "Exception raised by %s task",
             self.name,
             exc_info=(type(exception), exception, exception.__traceback__),
         )
+
+        # Never forward failures of on_exception itself to avoid infinite loops
+        handler = self.controller._exception_handler
+        if handler is not None and self.name != "on_exception":
+            try:
+                handler(exception)
+            except Exception:
+                logger.exception("Exception handler failed while reporting")
 
     def once(self, func):
         """
