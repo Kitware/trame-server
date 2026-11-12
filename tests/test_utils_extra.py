@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 import more_itertools
 import pytest
 
+from trame_server.protocol import CoreServer
 from trame_server.ui import VirtualNodeManager
 from trame_server.utils import asynchronous, browser, hot_reload, logger, server
 from trame_server.utils.argument_parser import ArgumentParser
@@ -104,20 +105,25 @@ def test_argument_parser_trame_args(monkeypatch, argv):
 # -----------------------------------------------------------------------------
 
 
-def _fake_server(host="localhost", port=1234):
+def _fake_server(host="localhost", port=1234, hide_secret=False):
     cli = ArgumentParser()
     cli.add_argument("--host", default=host)
     return SimpleNamespace(
         cli=cli,
         port=port,
-        server_options=Namespace(host=host),
+        server_options=Namespace(host=host, hide_secret=hide_secret),
     )
+
+
+def _set_auth(monkeypatch, token):
+    monkeypatch.setattr(CoreServer, "authentication_token", token)
 
 
 @pytest.mark.asyncio
 async def test_open_browser(monkeypatch):
     import webbrowser  # noqa: PLC0415
 
+    _set_auth(monkeypatch, "user key&x")
     open_mock = MagicMock()
     monkeypatch.setattr(webbrowser, "open", open_mock)
 
@@ -126,7 +132,48 @@ async def test_open_browser(monkeypatch):
         assert "--server" in buf.getvalue()
 
     await asyncio.sleep(0.2)
-    open_mock.assert_called_once_with("http://localhost:1234/")
+    open_mock.assert_called_once_with("http://localhost:1234/?secret=user+key%26x")
+
+
+@pytest.mark.asyncio
+async def test_open_browser_secret(monkeypatch):
+    import webbrowser  # noqa: PLC0415
+
+    _set_auth(monkeypatch, "abc_123-XYZ")
+    open_mock = MagicMock()
+    monkeypatch.setattr(webbrowser, "open", open_mock)
+
+    with io.StringIO() as buf, redirect_stdout(buf):
+        browser.open_browser(_fake_server())
+
+    await asyncio.sleep(0.2)
+    open_mock.assert_called_once_with("http://localhost:1234/?secret=abc_123-XYZ")
+
+
+def test_print_informations_secret(monkeypatch):
+    _set_auth(monkeypatch, "abc_123-XYZ")
+    monkeypatch.setattr(socket, "gethostbyname", lambda _: "10.0.0.1")
+
+    with io.StringIO() as buf, redirect_stdout(buf):
+        server.print_informations(_fake_server())
+        output = buf.getvalue()
+
+    assert "Local:   http://localhost:1234/?secret=abc_123-XYZ" in output
+    assert "Network: http://10.0.0.1:1234/?secret=abc_123-XYZ" in output
+
+
+def test_print_informations_hide_secret(monkeypatch):
+    _set_auth(monkeypatch, "abc_123-XYZ")
+    monkeypatch.setattr(socket, "gethostbyname", lambda _: "10.0.0.1")
+
+    with io.StringIO() as buf, redirect_stdout(buf):
+        server.print_informations(_fake_server(hide_secret=True))
+        output = buf.getvalue()
+
+    assert "abc_123-XYZ" not in output
+    assert "Local:   http://localhost:1234/\n" in output
+    assert "Network: http://10.0.0.1:1234/\n" in output
+    assert "--hide-secret" in output
 
 
 def test_open_browser_error(monkeypatch):
