@@ -1,7 +1,9 @@
 import inspect
 import logging
 import os
+import secrets
 from pathlib import Path
+from urllib.parse import urlencode
 
 from trame_common.utils import profiler
 from wslink import register as exportRpc
@@ -15,8 +17,12 @@ from trame_server.utils import clean_state, logger
 log = logging.getLogger(__name__)
 
 
+# wslink's default value for '--authKey'
+DEFAULT_AUTH_KEY = "wslink-secret"
+
+
 class CoreServer(ServerProtocol):
-    authentication_token = "wslink-secret"
+    authentication_token = DEFAULT_AUTH_KEY
     server = None
 
     # ---------------------------------------------------------------
@@ -35,14 +41,38 @@ class CoreServer(ServerProtocol):
     @staticmethod
     def add_arguments(parser):
         server.add_arguments(parser)
+        # Detect when no key is provided so a random one can be generated
+        # instead of relying on a well known default value.
+        parser.set_defaults(authKey=None)
 
     @staticmethod
     def configure(args):
-        if args.authKeyFile:
+        """
+        Resolve the WebSocket authentication secret from the parsed CLI args.
+
+        Precedence: ``--authKeyFile``, then ``--authKey``, otherwise a random
+        secret is generated (a new one on every call).
+        """
+        if getattr(args, "authKeyFile", None):
             with Path(args.authKeyFile).open("r") as key_file:
                 CoreServer.authentication_token = key_file.read().strip()
-        else:
+        elif getattr(args, "authKey", None):
             CoreServer.authentication_token = args.authKey
+        else:
+            CoreServer.authentication_token = secrets.token_urlsafe(32)
+
+    @staticmethod
+    def url_query_params():
+        """
+        URL query parameters a browser client needs to authenticate,
+        i.e. ``{"secret": <authentication token>}``.
+        """
+        return {"secret": CoreServer.authentication_token}
+
+    @staticmethod
+    def url_query():
+        """URL query string (including the leading ``?``) for a browser client"""
+        return f"?{urlencode(CoreServer.url_query_params())}"
 
     @staticmethod
     def server_start(
