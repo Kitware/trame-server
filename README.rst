@@ -45,6 +45,34 @@ The `API Reference <https://trame.readthedocs.io/en/latest/index.html>`_ documen
 * **TRAME_SERVER**          : If set to true, this will prevent browser from opening by default
 
 
+**WebSocket authentication**
+
+Clients must provide a secret to connect to the WebSocket. The secret
+comes from (in order of precedence):
+
+* ``--authKeyFile PATH`` : File whose (stripped) content is used as the secret.
+* ``--authKey KEY``      : Secret provided directly on the command line.
+* Otherwise, a random secret is generated every time the server starts.
+
+The browser client reads the secret from the ``?secret=...`` URL parameter,
+so the URLs printed at startup, the browser opened automatically and the
+desktop window (``--app``) already include it::
+
+    App running at:
+     - Local:   http://localhost:8080/?secret=qcNXdzVSWzM9kiVkgSqh9Nk1lPiX0fBDTDaFtmCkx_M
+     - Network: http://127.0.0.1:8080/?secret=qcNXdzVSWzM9kiVkgSqh9Nk1lPiX0fBDTDaFtmCkx_M
+
+Use ``--hide-secret`` to keep the secret out of the console output (and
+therefore out of any captured logs). With a generated secret this means
+the printed URLs cannot be used to connect, so combine it with
+``--authKey`` / ``--authKeyFile`` or with a launcher that delivers the
+secret to the client.
+
+When building a client URL yourself (iframe, testing, ...), use
+``server.url_query_params`` once the server is started to get the
+parameters to append (e.g. ``{"secret": "..."}``).
+
+
 **Life cycle callbacks**
 
 Life cycle events are directly managed on the application controller
