@@ -66,11 +66,11 @@ async def test_change_exception(fake_server):
 # -----------------------------------------------------------------------------
 
 
-def _ignored_warnings(caplog):
+def _ignored_errors(caplog):
     return [
         r
         for r in caplog.records
-        if r.levelname == "WARNING" and "callback exception ignored" in r.message
+        if r.levelname == "ERROR" and "callback exception ignored" in r.message
     ]
 
 
@@ -104,7 +104,7 @@ def test_change_exception_forwarded_to_handler(caplog):
     assert isinstance(reported[0], ValueError)
     assert str(reported[0]) == "boom"
     assert reported[0].__traceback__ is not None
-    assert _ignored_warnings(caplog) == []
+    assert len(_ignored_errors(caplog)) == 1
 
 
 def test_change_exception_logged_without_handler(caplog):
@@ -119,7 +119,7 @@ def test_change_exception_logged_without_handler(caplog):
     with state:
         state.a = 2
 
-    records = _ignored_warnings(caplog)
+    records = _ignored_errors(caplog)
     assert len(records) == 1
     assert records[0].exc_info[0] is ValueError
 
@@ -143,7 +143,7 @@ def test_change_exception_logged_when_handler_declines(caplog):
         state.a = 2
 
     assert len(reported) == 1
-    assert len(_ignored_warnings(caplog)) == 1
+    assert len(_ignored_errors(caplog)) == 1
 
 
 def test_change_exception_handler_failure_does_not_propagate(caplog):
@@ -165,7 +165,7 @@ def test_change_exception_handler_failure_does_not_propagate(caplog):
         r.levelname == "ERROR" and "Exception handler failed" in r.message
         for r in caplog.records
     )
-    assert len(_ignored_warnings(caplog)) == 1
+    assert len(_ignored_errors(caplog)) == 1
 
 
 @pytest.mark.asyncio
@@ -194,8 +194,7 @@ async def test_async_change_exception_forwarded_to_handler(caplog):
 
     assert len(reported) == 1
     assert str(reported[0]) == "async boom"
-    assert _ignored_warnings(caplog) == []
-    assert not any(r.levelname == "ERROR" for r in caplog.records)
+    assert len(_ignored_errors(caplog)) == 1
 
 
 @pytest.mark.asyncio
@@ -212,7 +211,7 @@ async def test_async_change_exception_logged_without_handler(caplog):
         state.a = 2
 
     await asyncio.sleep(0.1)
-    assert len(_ignored_warnings(caplog)) == 1
+    assert len(_ignored_errors(caplog)) == 1
 
 
 def test_child_state_inherits_exception_handler():
@@ -264,7 +263,7 @@ def test_server_change_exception_forwarded_to_on_exception(caplog):
     server.context.flush()
 
     assert [str(e) for e in reported] == ["state", "context"]
-    assert _ignored_warnings(caplog) == []
+    assert len(_ignored_errors(caplog)) == 2
 
 
 def test_child_server_change_exception_forwarded_to_root_on_exception():
@@ -300,4 +299,4 @@ def test_server_change_exception_logged_without_on_exception(caplog):
     server.state.a = 1
     server.state.flush()
 
-    assert len(_ignored_warnings(caplog)) == 1
+    assert len(_ignored_errors(caplog)) == 1

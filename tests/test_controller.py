@@ -297,7 +297,12 @@ async def test_controller_task_exception_forwarded_to_handler(caplog):
     await asyncio.sleep(0)
 
     assert [str(e) for e in reported] == ["task boom"]
-    assert not any(r.levelname == "ERROR" for r in caplog.records)
+    records = [
+        r
+        for r in caplog.records
+        if r.levelname == "ERROR" and "Exception raised by fn task" in r.message
+    ]
+    assert len(records) == 1
 
 
 @pytest.mark.asyncio
