@@ -72,6 +72,7 @@ class Server:
         self._running_stage = 0  # 0: off / 1: pending / 2: running
         self._running_port = 0
         self._running_future = None
+        self._server_options = None  # set by start()
         self._www = None
         self.serve = {}  # HTTP static endpoints
         self._loaded_modules = set()
@@ -79,6 +80,12 @@ class Server:
         self._cli_parser = None
         self._root_protocol = None
         self._protocols_to_configure = []
+
+        # Agents (MCP): created on first access to self.mcp, root only
+        self._mcp = None
+        self._child_mcp = None  # a child's view of its root's
+        self._mcp_bound = False
+        self._mcp_endpoint_mounted = False
 
         # ENV variable mapping settings
         self.hot_reload = "--hot-reload" in sys.argv or bool(
@@ -107,6 +114,7 @@ class Server:
                 commit_fn=self._push_state,
                 hot_reload=self.hot_reload,
                 exception_handler=self._handle_exception,
+                get_mcp=self._get_mcp,
             )
             for key in [
                 "scripts",
@@ -127,6 +135,7 @@ class Server:
                 internal=parent_server._state,
                 commit_fn=self._push_state,
                 hot_reload=self.hot_reload,
+                get_mcp=self._get_mcp,
             )
 
         # Controller
@@ -445,6 +454,11 @@ class Server:
             action="store_true",
         )
 
+        # Agents (MCP)
+        from .mcp import MCP  # noqa: PLC0415
+
+        MCP.add_arguments(self._cli_parser)
+
         CoreServer.add_arguments(self._cli_parser)
 
         return self._cli_parser
@@ -466,6 +480,58 @@ class Server:
         :rtype: trame_server.state.State
         """
         return self._context
+
+    @property
+    def mcp(self):
+        """
+        The MCP server agents connect to, created on first access. A child server
+        shares its root's, and the names it exposes objects under go through its
+        translator.
+
+        :return: The server MCP
+        :rtype: trame_server.mcp.MCP
+        """
+        if self.root_server != self:
+            if self._child_mcp is None:
+                from .mcp.core import ChildMCP  # noqa: PLC0415
+
+                self._child_mcp = ChildMCP(self.root_server.mcp, self.translator)
+            return self._child_mcp
+
+        if self._mcp is None:
+            from .mcp import MCP  # noqa: PLC0415
+
+            self._mcp = MCP(self)
+        return self._mcp
+
+    def _get_mcp(self):
+        return self.mcp
+
+    def _bind_mcp(self, wslink_server):
+        """Called once the web server is bound. Mount the MCP endpoint, whether or not
+        self.mcp exists yet or serves http now, since routes freeze at start and the
+        app may add the transport later. Only --no-mcp and --no-mcp-transport leave it
+        out."""
+        from .mcp.core import transports_withheld  # noqa: PLC0415
+
+        self._mcp_bound = True
+        if not transports_withheld(self.server_options):
+            from .mcp.endpoint import mount  # noqa: PLC0415
+
+            self._mcp_endpoint_mounted = mount(self, wslink_server)
+        if self._mcp is not None:
+            self._mcp._start()
+
+    def _mcp_ready(self):
+        """Called when the server is ready: announce agent access when it is live."""
+        if self._mcp is not None:
+            self._mcp._on_ready()
+            if self._mcp._exposes_anything():
+                return
+        if getattr(self.server_options, "mcp", None):
+            logging.getLogger("trame_server.mcp").warning(
+                "--mcp is given, but this app exposes nothing to agents"
+            )
 
     @property
     def controller(self) -> Controller:
