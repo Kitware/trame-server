@@ -2,6 +2,8 @@ import asyncio
 import threading
 from multiprocessing import Process, Queue
 
+from trame_server.protocol import CoreServer
+
 from .asynchronous import handle_task_result
 
 try:
@@ -65,6 +67,7 @@ class BrowserProcess(Process):
         self,
         title=None,
         port=None,
+        url_query="",
         msg_queue=None,
         action_queue=None,
         debug=False,
@@ -75,6 +78,7 @@ class BrowserProcess(Process):
         Process.__init__(self)
         self._title = title
         self._port = port
+        self._url_query = url_query
         self._msg_queue = msg_queue
         self._action_queue = action_queue
         self._menu = menu or []
@@ -115,7 +119,7 @@ class BrowserProcess(Process):
     def run(self):
         self._main_window = webview.create_window(
             title=self._title,
-            url=f"http://localhost:{self._port}/index.html",
+            url=f"http://localhost:{self._port}/index.html{self._url_query}",
             **self._window_args,
         )
         if hasattr(self._main_window, "events"):
@@ -159,6 +163,7 @@ def start_browser(server, **kwargs):
     client_process = BrowserProcess(
         title=server.state.trame__title,
         port=server.port,
+        url_query=CoreServer.url_query(),
         msg_queue=_msg_queue,
         action_queue=_window_action_queue,
         debug=server.options.get("desktop_debug"),

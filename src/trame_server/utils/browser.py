@@ -1,6 +1,9 @@
+from trame_server.protocol import CoreServer
+
+
 def open_browser(server):
     args = server.cli.parse_known_args()[0]
-    local_url = f"http://{args.host}:{server.port}/"
+    local_url = f"http://{args.host}:{server.port}/{CoreServer.url_query()}"
     try:
         import webbrowser  # noqa: PLC0415
 

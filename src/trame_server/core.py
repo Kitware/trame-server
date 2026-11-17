@@ -403,6 +403,13 @@ class Server:
             action="store_true",
         )
         self._cli_parser.add_argument(
+            "--hide-secret",
+            help="""Do not print the WebSocket authentication key
+                    (the '?secret=...' URL parameter) in the console output""",
+            dest="hide_secret",
+            action="store_true",
+        )
+        self._cli_parser.add_argument(
             "--no-http",
             help="Do not serve anything over http",
             dest="no_http",
@@ -412,7 +419,9 @@ class Server:
             "--authKeyFile",
             help="""Path to a File that contains the Authentication key for clients
                     to connect to the WebSocket.
-                    This takes precedence over '-a, --authKey' from wslink.""",
+                    This takes precedence over '-a, --authKey' from wslink.
+                    When neither is provided, a random key is generated.
+                    The key is reported as a '?secret=...' URL parameter.""",
         )
         self._cli_parser.add_argument(
             "--hot-reload",
@@ -821,6 +830,22 @@ class Server:
             return self.root_server.port
 
         return self._running_port
+
+    @property
+    def url_query_params(self) -> dict[str, str]:
+        """
+        URL query parameters a browser client needs to connect, i.e.
+        ``{"secret": "..."}`` holding the WebSocket authentication key.
+        The key comes from ``--authKeyFile`` or ``--authKey``, otherwise it is
+        randomly generated at start, so only rely on it once the server is
+        started (e.g. in ``on_server_ready``).
+
+        >>> from urllib.parse import urlencode
+        >>> url = (
+        ...     f"http://localhost:{server.port}/?{urlencode(server.url_query_params)}"
+        ... )
+        """
+        return CoreServer.url_query_params()
 
     @property
     def server_options(self):
