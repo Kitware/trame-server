@@ -217,25 +217,32 @@ async def test_session_subscriptions(caplog):
 def test_configure_auth_key(tmp_path):
     previous = CoreServer.authentication_token
     try:
-        CoreServer.configure(Namespace(authKeyFile=None, authKey="from-arg"))
+        # Nothing given => wslink's default
+        assert (
+            CoreServer.configure(Namespace(authKeyFile=None, authKey=None))
+            == DEFAULT_AUTH_KEY
+        )
+        assert CoreServer.authentication_token == DEFAULT_AUTH_KEY
+
+        assert (
+            CoreServer.configure(Namespace(authKeyFile=None, authKey="from-arg"))
+            == "from-arg"
+        )
         assert CoreServer.authentication_token == "from-arg"
 
         key_file = tmp_path / "key.txt"
         key_file.write_text("from-file\n")
-        CoreServer.configure(Namespace(authKeyFile=str(key_file), authKey="unused"))
+        assert (
+            CoreServer.configure(Namespace(authKeyFile=str(key_file), authKey="auto"))
+            == "from-file"
+        )
         assert CoreServer.authentication_token == "from-file"
-        assert CoreServer.url_query_params() == {"secret": "from-file"}
-        assert CoreServer.url_query() == "?secret=from-file"
 
-        # No key provided => random token exposed through the url
-        CoreServer.configure(Namespace(authKeyFile=None, authKey=None))
-        token = CoreServer.authentication_token
-        assert token not in {None, "", DEFAULT_AUTH_KEY}
-        assert CoreServer.url_query_params() == {"secret": token}
-        assert CoreServer.url_query() == f"?secret={token}"
-
-        CoreServer.configure(Namespace(authKeyFile=None, authKey=None))
-        assert CoreServer.authentication_token != token
+        # 'auto' => random key, a new one on every call
+        token = CoreServer.configure(Namespace(authKeyFile=None, authKey="auto"))
+        assert token not in {"", "auto", DEFAULT_AUTH_KEY}
+        assert CoreServer.authentication_token == token
+        assert CoreServer.configure(Namespace(authKey="auto")) != token
     finally:
         CoreServer.authentication_token = previous
 

@@ -1,8 +1,7 @@
 import asyncio
 import threading
 from multiprocessing import Process, Queue
-
-from trame_server.protocol import CoreServer
+from urllib.parse import urlencode
 
 from .asynchronous import handle_task_result
 
@@ -141,6 +140,7 @@ class BrowserProcess(Process):
 
 
 def start_browser(server, **kwargs):
+    query = server.url_query_params
     _msg_queue = Queue()
     _window_action_queue = Queue()
     _on_msg = kwargs.get("on_message")
@@ -163,7 +163,7 @@ def start_browser(server, **kwargs):
     client_process = BrowserProcess(
         title=server.state.trame__title,
         port=server.port,
-        url_query=CoreServer.url_query(),
+        url_query=f"?{urlencode(query)}" if query else "",
         msg_queue=_msg_queue,
         action_queue=_window_action_queue,
         debug=server.options.get("desktop_debug"),

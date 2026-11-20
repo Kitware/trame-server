@@ -1,15 +1,14 @@
 import inspect
 import logging
 import os
-import secrets
-from pathlib import Path
-from urllib.parse import urlencode
 
 from trame_common.utils import profiler
 from wslink import register as exportRpc
 from wslink import server
 from wslink.websocket import ServerProtocol
 
+from trame_server import auth
+from trame_server.auth import aiohttp as auth_aiohttp
 from trame_server.state import TRAME_NON_INIT_VALUE
 from trame_server.utils import clean_state, logger
 
@@ -18,7 +17,7 @@ log = logging.getLogger(__name__)
 
 
 # wslink's default value for '--authKey'
-DEFAULT_AUTH_KEY = "wslink-secret"
+DEFAULT_AUTH_KEY = auth.DEFAULT_SECRET
 
 
 class CoreServer(ServerProtocol):
@@ -41,38 +40,28 @@ class CoreServer(ServerProtocol):
     @staticmethod
     def add_arguments(parser):
         server.add_arguments(parser)
-        # Detect when no key is provided so a random one can be generated
-        # instead of relying on a well known default value.
-        parser.set_defaults(authKey=None)
+        for action in parser._actions:
+            if "--authKey" in action.option_strings:
+                action.help = f"""Authentication key for clients to connect to the
+                    WebSocket. '{auth.AUTO_SECRET}' generates a random key on every
+                    start, given to the browser as a '?{auth.SECRET_PARAM}=...' URL
+                    parameter. Defaults to wslink's well-known key."""
 
     @staticmethod
     def configure(args):
         """
-        Resolve the WebSocket authentication secret from the parsed CLI args.
+        Resolve the WebSocket secret from the parsed CLI args and return it.
 
-        Precedence: ``--authKeyFile``, then ``--authKey``, otherwise a random
-        secret is generated (a new one on every call).
+        Precedence: ``--authKeyFile``, then ``--authKey`` (``auto`` generates a
+        new random secret on every call), otherwise wslink's default secret.
         """
-        if getattr(args, "authKeyFile", None):
-            with Path(args.authKeyFile).open("r") as key_file:
-                CoreServer.authentication_token = key_file.read().strip()
-        elif getattr(args, "authKey", None):
-            CoreServer.authentication_token = args.authKey
-        else:
-            CoreServer.authentication_token = secrets.token_urlsafe(32)
-
-    @staticmethod
-    def url_query_params():
-        """
-        URL query parameters a browser client needs to authenticate,
-        i.e. ``{"secret": <authentication token>}``.
-        """
-        return {"secret": CoreServer.authentication_token}
-
-    @staticmethod
-    def url_query():
-        """URL query string (including the leading ``?``) for a browser client"""
-        return f"?{urlencode(CoreServer.url_query_params())}"
+        secret = auth.resolve_secret(
+            getattr(args, "authKey", None), getattr(args, "authKeyFile", None)
+        )
+        # Last resolved secret, for code still reading it: each server's protocol
+        # holds its own in `secret`
+        CoreServer.authentication_token = secret
+        return secret
 
     @staticmethod
     def server_start(
@@ -119,10 +108,18 @@ class CoreServer(ServerProtocol):
         for configure in self.server._protocols_to_configure:
             configure(self)
 
-        self.updateSecret(CoreServer.authentication_token)
+        # The secret this server started with. From now on `self.secret` is the
+        # only one checked: updateSecret() changes what is accepted
+        options = self.server.server_options
+        self.updateSecret(
+            getattr(options, "authKey", None) or CoreServer.authentication_token
+        )
+        self._cookie_clients = set()
 
     def set_server(self, _server):
         self.server._server = _server
+        # Cookie on page responses: aiohttp only, other backends use the secret
+        auth_aiohttp.mount(_server, lambda: self.secret, lambda: self.server.port)
         if self.server.controller.on_server_bind.exists():
             # wslink registers its static routes on start, so routes added
             # here take precedence over them
@@ -147,6 +144,29 @@ class CoreServer(ServerProtocol):
             # Mark the server as ready
             if not self.server.ready.done():
                 self.server.ready.set_result(True)
+
+    # ---------------------------------------------------------------
+    # Authentication (called by wslink)
+    # ---------------------------------------------------------------
+
+    def onConnect(self, request, client_id):
+        # Only aiohttp gives the upgrade request: tornado and jupyter go through
+        # wslink's generic backend, which gives a dict without headers
+        headers = getattr(request, "headers", None)
+        if headers is not None and auth.check_cookie(
+            self.secret, headers, self.server.port
+        ):
+            self._cookie_clients.add(client_id)
+
+    def onClose(self, client_id):
+        self._cookie_clients.discard(client_id)
+
+    async def validateToken(self, token, client_id):
+        """Accept the secret, or any token from a client whose connection request
+        carried a valid cookie from the app's own pages."""
+        return client_id in self._cookie_clients or auth.check_secret(
+            self.secret, token
+        )
 
     # ---------------------------------------------------------------
 
