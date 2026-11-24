@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 import more_itertools
 import pytest
 
+from trame_server import auth
 from trame_server.ui import VirtualNodeManager
 from trame_server.utils import asynchronous, browser, hot_reload, logger, server
 from trame_server.utils.argument_parser import ArgumentParser
@@ -104,13 +105,21 @@ def test_argument_parser_trame_args(monkeypatch, argv):
 # -----------------------------------------------------------------------------
 
 
-def _fake_server(host="localhost", port=1234):
+def _fake_server(
+    host="localhost",
+    port=1234,
+    hide_secret=False,
+    secret=auth.DEFAULT_SECRET,
+    ssl="",
+):
     cli = ArgumentParser()
     cli.add_argument("--host", default=host)
+    cli.add_argument("--ssl", default=ssl)
     return SimpleNamespace(
         cli=cli,
         port=port,
-        server_options=Namespace(host=host),
+        server_options=Namespace(host=host, hide_secret=hide_secret, ssl=ssl),
+        url_query_params=auth.url_query_params(secret),
     )
 
 
@@ -126,7 +135,80 @@ async def test_open_browser(monkeypatch):
         assert "--server" in buf.getvalue()
 
     await asyncio.sleep(0.2)
+    # Default key: the URL is opened as is
     open_mock.assert_called_once_with("http://localhost:1234/")
+
+
+@pytest.mark.asyncio
+async def test_open_browser_secret(monkeypatch):
+    import webbrowser  # noqa: PLC0415
+
+    open_mock = MagicMock()
+    monkeypatch.setattr(webbrowser, "open", open_mock)
+
+    with io.StringIO() as buf, redirect_stdout(buf):
+        browser.open_browser(_fake_server(secret="user key&x"))
+
+    await asyncio.sleep(0.2)
+    open_mock.assert_called_once_with("http://localhost:1234/?secret=user+key%26x")
+
+
+@pytest.mark.asyncio
+async def test_open_browser_ssl(monkeypatch):
+    import webbrowser  # noqa: PLC0415
+
+    open_mock = MagicMock()
+    monkeypatch.setattr(webbrowser, "open", open_mock)
+
+    with io.StringIO() as buf, redirect_stdout(buf):
+        browser.open_browser(_fake_server(ssl="adhoc"))
+
+    await asyncio.sleep(0.2)
+    open_mock.assert_called_once_with("https://localhost:1234/")
+
+
+def test_print_informations_ssl(monkeypatch):
+    monkeypatch.setattr(socket, "gethostbyname", lambda _: "10.0.0.1")
+    with io.StringIO() as buf, redirect_stdout(buf):
+        # wslink replaces "adhoc" with the generated (cert, key) files at start
+        server.print_informations(_fake_server(ssl=("cert.pem", "key.pem")))
+        output = buf.getvalue()
+
+    assert "Local:   https://localhost:1234/\n" in output
+    assert "Network: https://10.0.0.1:1234/\n" in output
+
+
+def test_print_informations_secret(monkeypatch):
+    monkeypatch.setattr(socket, "gethostbyname", lambda _: "10.0.0.1")
+    with io.StringIO() as buf, redirect_stdout(buf):
+        server.print_informations(_fake_server(secret="abc_123-XYZ"))
+        output = buf.getvalue()
+
+    assert "Local:   http://localhost:1234/?secret=abc_123-XYZ" in output
+    assert "Network: http://10.0.0.1:1234/?secret=abc_123-XYZ" in output
+
+
+def test_print_informations_hide_secret(monkeypatch):
+    monkeypatch.setattr(socket, "gethostbyname", lambda _: "10.0.0.1")
+    with io.StringIO() as buf, redirect_stdout(buf):
+        server.print_informations(_fake_server(hide_secret=True, secret="abc_123-XYZ"))
+        output = buf.getvalue()
+
+    assert "abc_123-XYZ" not in output
+    assert "Local:   http://localhost:1234/?secret=<secret>\n" in output
+    assert "Network: http://10.0.0.1:1234/?secret=<secret>\n" in output
+    assert "--hide-secret" in output
+
+
+def test_print_informations_default_secret(monkeypatch):
+    monkeypatch.setattr(socket, "gethostbyname", lambda _: "10.0.0.1")
+    with io.StringIO() as buf, redirect_stdout(buf):
+        server.print_informations(_fake_server())
+        output = buf.getvalue()
+
+    # The default secret adds nothing to the URLs
+    assert "Local:   http://localhost:1234/\n" in output
+    assert "secret" not in output
 
 
 def test_open_browser_error(monkeypatch):

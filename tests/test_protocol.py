@@ -12,7 +12,7 @@ from aiohttp import web
 from trame.app import asynchronous, get_client, get_server
 
 from trame_server.client import ConnectionStatus, WsLinkSession
-from trame_server.protocol import CoreServer
+from trame_server.protocol import DEFAULT_AUTH_KEY, CoreServer
 
 
 @pytest_asyncio.fixture
@@ -30,7 +30,7 @@ async def server():
 @pytest_asyncio.fixture
 async def client(server):
     client = get_client(f"ws://localhost:{server.port}/ws")
-    asynchronous.create_task(client.connect(secret="wslink-secret"))
+    asynchronous.create_task(client.connect(secret=CoreServer.authentication_token))
 
     for _ in range(20):
         if client.connected == ConnectionStatus.CONNECTED:
@@ -57,7 +57,7 @@ async def session(server):
         session.pushed_states = []
         session.register_subscription("trame.state.topic", session.pushed_states.append)
         listen_task = asynchronous.create_task(session.listen())
-        await (await session.auth(secret="wslink-secret"))
+        await (await session.auth(secret=CoreServer.authentication_token))
         try:
             yield session
         finally:
@@ -217,13 +217,32 @@ async def test_session_subscriptions(caplog):
 def test_configure_auth_key(tmp_path):
     previous = CoreServer.authentication_token
     try:
-        CoreServer.configure(Namespace(authKeyFile=None, authKey="from-arg"))
+        # Nothing given => wslink's default
+        assert (
+            CoreServer.configure(Namespace(authKeyFile=None, authKey=None))
+            == DEFAULT_AUTH_KEY
+        )
+        assert CoreServer.authentication_token == DEFAULT_AUTH_KEY
+
+        assert (
+            CoreServer.configure(Namespace(authKeyFile=None, authKey="from-arg"))
+            == "from-arg"
+        )
         assert CoreServer.authentication_token == "from-arg"
 
         key_file = tmp_path / "key.txt"
         key_file.write_text("from-file\n")
-        CoreServer.configure(Namespace(authKeyFile=str(key_file), authKey="unused"))
+        assert (
+            CoreServer.configure(Namespace(authKeyFile=str(key_file), authKey="auto"))
+            == "from-file"
+        )
         assert CoreServer.authentication_token == "from-file"
+
+        # 'auto' => random key, a new one on every call
+        token = CoreServer.configure(Namespace(authKeyFile=None, authKey="auto"))
+        assert token not in {"", "auto", DEFAULT_AUTH_KEY}
+        assert CoreServer.authentication_token == token
+        assert CoreServer.configure(Namespace(authKey="auto")) != token
     finally:
         CoreServer.authentication_token = previous
 
@@ -297,7 +316,9 @@ async def test_connected_status_follows_authentication(server):
     assert client.connected == ConnectionStatus.DISCONNECTED
 
     statuses = []
-    task = asynchronous.create_task(client.connect(secret="wslink-secret"))
+    task = asynchronous.create_task(
+        client.connect(secret=CoreServer.authentication_token)
+    )
     deadline = asyncio.get_running_loop().time() + 5
     while asyncio.get_running_loop().time() < deadline:
         status = client.connected
@@ -346,7 +367,9 @@ async def test_connect_failure_allows_reconnect(server):
 
     # Not stuck in CONNECTING, so a new attempt goes through
     task = asynchronous.create_task(
-        client.connect(f"ws://localhost:{server.port}/ws", secret="wslink-secret")
+        client.connect(
+            f"ws://localhost:{server.port}/ws", secret=CoreServer.authentication_token
+        )
     )
     for _ in range(50):
         if client.connected == ConnectionStatus.CONNECTED:
